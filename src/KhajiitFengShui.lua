@@ -1,5 +1,5 @@
 local ADDON_NAME = "KhajiitFengShui"
-local ADDON_VERSION = "1.0.1"
+local ADDON_VERSION = "1.0.2"
 
 --- @class KhajiitFengShui
 local KhajiitFengShui =
@@ -83,8 +83,8 @@ local DEFAULT_PANEL_DEFINITIONS =
         id = "compass",
         controlName = "ZO_CompassFrame",
         label = KFS_LABEL_COMPASS,
-        postApply = function ()
-            if COMPASS_FRAME then
+        preApply = function ()
+            if COMPASS_FRAME and COMPASS_FRAME.ApplyStyle then
                 COMPASS_FRAME:ApplyStyle()
             end
         end,
@@ -441,6 +441,10 @@ function KhajiitFengShui:ApplySavedPosition(panel)
         handler:UpdatePosition({ left = left, top = top })
     end
 
+    if panel.definition.preApply then
+        panel.definition.preApply(panel.control, hasCustom)
+    end
+
     local leftTop = handler:GetLeftTopPosition()
     ApplyControlAnchor(panel, leftTop.left or 0, leftTop.top or 0)
 
@@ -578,6 +582,9 @@ function KhajiitFengShui:ResetPositions()
             self.savedVars.positions[panel.definition.id] = nil
             if panel.defaultPosition then
                 panel.handler:UpdatePosition(CopyPosition(panel.defaultPosition))
+                if panel.definition.preApply then
+                    panel.definition.preApply(panel.control, false)
+                end
                 ApplyControlAnchor(panel, panel.defaultPosition.left or 0, panel.defaultPosition.top or 0)
                 if panel.definition.postApply then
                     panel.definition.postApply(panel.control, false)
