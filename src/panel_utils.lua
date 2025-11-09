@@ -13,9 +13,64 @@ function PanelUtils.copyPosition(position)
     return clone
 end
 
-function PanelUtils.applyControlAnchor(control, left, top)
+local function computeRelativeOffsets(control, point, relativePoint, left, top, definition)
+    local target = GuiRoot
+    local offsetX = left
+    local offsetY = top
+    local fallbackWidth = definition and definition.width or 0
+    local fallbackHeight = definition and definition.height or 0
+    local controlWidth = control:GetWidth()
+    local controlHeight = control:GetHeight()
+
+    if point == BOTTOMLEFT and relativePoint == BOTTOMLEFT then
+        local height = (controlHeight ~= nil and controlHeight ~= 0) and controlHeight or fallbackHeight or 0
+        local guiHeight = target:GetHeight() or 0
+        offsetY = (top + height) - guiHeight
+    elseif point == TOPRIGHT and relativePoint == TOPRIGHT then
+        local width = (controlWidth ~= nil and controlWidth ~= 0) and controlWidth or fallbackWidth or 0
+        local guiWidth = target:GetWidth() or 0
+        offsetX = (left + width) - guiWidth
+    elseif point == BOTTOMRIGHT and relativePoint == BOTTOMRIGHT then
+        local width = (controlWidth ~= nil and controlWidth ~= 0) and controlWidth or fallbackWidth or 0
+        local height = (controlHeight ~= nil and controlHeight ~= 0) and controlHeight or fallbackHeight or 0
+        local guiWidth = target:GetWidth() or 0
+        local guiHeight = target:GetHeight() or 0
+        offsetX = (left + width) - guiWidth
+        offsetY = (top + height) - guiHeight
+    end
+
+    return offsetX, offsetY
+end
+
+function PanelUtils.applyControlAnchor(panel, left, top)
+    if not panel then
+        return
+    end
+
+    local control = panel.control
+    if not (control and control.SetAnchor) then
+        return
+    end
+
+    local definition = panel.definition or {}
+    local point = definition.anchorPoint or TOPLEFT
+    local relativePoint = definition.anchorRelativePoint or point
+    local applyAnchor = definition.anchorApply
+
     control:ClearAnchors()
-    control:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, left, top)
+
+    if type(applyAnchor) == "function" then
+        applyAnchor(panel, left, top)
+        return
+    end
+
+    if point == TOPLEFT and relativePoint == TOPLEFT then
+        control:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, left, top)
+        return
+    end
+
+    local offsetX, offsetY = computeRelativeOffsets(control, point, relativePoint, left, top, definition)
+    control:SetAnchor(point, GuiRoot, relativePoint, offsetX, offsetY)
 end
 
 function PanelUtils.applySizing(control, width, height)
@@ -95,4 +150,3 @@ function PanelUtils.getAnchorPosition(handler, snapToGrid)
 end
 
 KFS_PanelUtils = PanelUtils
-

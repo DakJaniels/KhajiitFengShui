@@ -1,5 +1,5 @@
 local ADDON_NAME = "KhajiitFengShui"
-local ADDON_VERSION = "1.0.3"
+local ADDON_VERSION = "1.0.4"
 
 --- @class KhajiitFengShui
 local KhajiitFengShui =
@@ -172,7 +172,7 @@ function KhajiitFengShui:EnsureCompassHook()
             return
         end
         local left, top = PanelUtils.getAnchorPosition(compassPanel.handler, true)
-        PanelUtils.applyControlAnchor(compassPanel.control, left, top)
+        PanelUtils.applyControlAnchor(compassPanel, left, top)
     end)
 
     self.compassHookRegistered = true
@@ -207,7 +207,7 @@ function KhajiitFengShui:ApplySavedPosition(panel)
     end
 
     local left, top = PanelUtils.getAnchorPosition(handler)
-    PanelUtils.applyControlAnchor(panel.control, left, top)
+    PanelUtils.applyControlAnchor(panel, left, top)
 
     if panel.definition.postApply then
         panel.definition.postApply(panel.control, hasCustom)
@@ -263,7 +263,7 @@ function KhajiitFengShui:OnMoveStop(panel, handler, newPos)
     self.savedVars.positions[panel.definition.id] = PanelUtils.copyPosition(position)
 
     local left, top = PanelUtils.getAnchorPosition(handler, true)
-    PanelUtils.applyControlAnchor(panel.control, left, top)
+    PanelUtils.applyControlAnchor(panel, left, top)
 
     if panel.definition.postApply then
         panel.definition.postApply(panel.control, true)
@@ -338,7 +338,7 @@ function KhajiitFengShui:ResetPositions()
                 if panel.definition.preApply then
                     panel.definition.preApply(panel.control, false)
                 end
-                PanelUtils.applyControlAnchor(panel.control, panel.defaultPosition.left or 0, panel.defaultPosition.top or 0)
+                PanelUtils.applyControlAnchor(panel, panel.defaultPosition.left or 0, panel.defaultPosition.top or 0)
                 if panel.definition.postApply then
                     panel.definition.postApply(panel.control, false)
                 end

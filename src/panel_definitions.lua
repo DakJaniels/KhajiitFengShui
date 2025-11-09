@@ -38,10 +38,10 @@ local definitions =
         postApply = function (control)
             if COMPASS_FRAME and COMPASS_FRAME.ApplyStyle then
                 zo_callLater(function ()
-                    if control and control.SetAnchor then
-                        COMPASS_FRAME:ApplyStyle()
-                    end
-                end, 0)
+                                 if control and control.SetAnchor then
+                                     COMPASS_FRAME:ApplyStyle()
+                                 end
+                             end, 0)
             end
         end,
     },
@@ -92,6 +92,24 @@ local definitions =
         width = 280,
         height = 400,
         condition = isConsole,
+        anchorPoint = BOTTOMLEFT,
+        anchorRelativePoint = BOTTOMLEFT,
+        postApply = function (control)
+            if not LOOT_HISTORY_GAMEPAD then
+                return
+            end
+
+            local function refreshBuffer(buffer)
+                if not buffer then
+                    return
+                end
+
+                buffer.anchor = ZO_Anchor:New(BOTTOMLEFT, control, BOTTOMLEFT)
+            end
+
+            refreshBuffer(LOOT_HISTORY_GAMEPAD.lootStream)
+            refreshBuffer(LOOT_HISTORY_GAMEPAD.lootStreamPersistent)
+        end,
     },
     {
         id = "tutorials",
@@ -283,4 +301,3 @@ function PanelDefinitions.resolveControl(definition)
 end
 
 KFS_PanelDefinitions = PanelDefinitions
-
