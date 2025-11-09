@@ -11,7 +11,7 @@ local strings =
     KFS_RESET_ALL_DESC = "Reset all supported frames to their default positions.",
     KFS_SECTION_CONTROLS = "Individual Controls",
     KFS_MOVE_BUTTON = "Adjust",
-    KFS_MOVE_BUTTON_DESC = "Activate movement for this control using the LibCombatAlerts mover.",
+    KFS_MOVE_BUTTON_DESC = "Currectly positioned at: ",
 
     KFS_LABEL_INFAMY = "Infamy Meter",
     KFS_LABEL_TELVAR = "Tel Var Meter",
@@ -28,6 +28,7 @@ local strings =
     KFS_LABEL_PLAYER_PROGRESS = "Player Progress",
     KFS_LABEL_ENDLESS_DUNGEON = "Endless Dungeon Tracker",
     KFS_LABEL_RETICLE = "Reticle Interaction",
+    KFS_LABEL_TARGET_FRAME = "Target Frame",
     KFS_LABEL_LOOT_HISTORY = "Loot History",
     KFS_LABEL_TUTORIALS = "Tutorials",
     KFS_LABEL_ALERTS = "Alerts",

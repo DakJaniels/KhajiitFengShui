@@ -1,5 +1,5 @@
 local ADDON_NAME = "KhajiitFengShui"
-local ADDON_VERSION = "1.0.2"
+local ADDON_VERSION = "1.0.3"
 
 --- @class KhajiitFengShui
 local KhajiitFengShui =
@@ -11,6 +11,7 @@ local KhajiitFengShui =
     panels = {},
     panelLookup = {},
     activePanelId = nil,
+    compassHookRegistered = false,
 }
 
 KhajiitFengShui.defaults =
@@ -30,269 +31,11 @@ local wm = GetWindowManager()
 local em = GetEventManager()
 local sceneManager = SCENE_MANAGER
 
---- @param pos table<string, any>
---- @return table<string, any>
-local function CopyPosition(pos)
-    if not pos then
-        return nil
-    end
-    local copy = {}
-    for key, value in pairs(pos) do
-        copy[key] = value
-    end
-    return copy
-end
+local PanelUtils = KFS_PanelUtils
+local PanelDefinitions = KFS_PanelDefinitions
 
-local function GetPanelLabel(controlData)
-    return GetString(controlData.label)
-end
-
---- @return boolean
-local function IsConsole()
-    return IsConsoleUI()
-end
-
---- @alias KhajiitFengShuiPanelDefinition { id: string, controlName: string, label: integer, width?: number, height?: number, condition?: fun(): boolean, postApply:( fun(control: Control, hasCustomPosition: boolean)?) }
-
---- @type KhajiitFengShuiPanelDefinition[]
-local DEFAULT_PANEL_DEFINITIONS =
-{
-    { id = "infamy",       controlName = "ZO_HUDInfamyMeter",                  label = KFS_LABEL_INFAMY                                 },
-    { id = "telvar",       controlName = "ZO_HUDTelvarMeter",                  label = KFS_LABEL_TELVAR                                 },
-    { id = "volendrung",   controlName = "ZO_HUDDaedricEnergyMeter",           label = KFS_LABEL_VOLENDRUNG                             },
-    { id = "equipment",    controlName = "ZO_HUDEquipmentStatus",              label = KFS_LABEL_EQUIPMENT,    width = 64,  height = 64 },
-    { id = "quest",        controlName = "ZO_FocusedQuestTrackerPanel",        label = KFS_LABEL_QUEST,        height = 200             },
-    { id = "battleground", controlName = "ZO_BattlegroundHUDFragmentTopLevel", label = KFS_LABEL_BATTLEGROUND, height = 200             },
-    { id = "actionbar",    controlName = "ZO_ActionBar1",                      label = KFS_LABEL_ACTIONBAR                              },
-    { id = "subtitles",    controlName = "ZO_Subtitles",                       label = KFS_LABEL_SUBTITLES,    width = 256, height = 80 },
-    {
-        id = "objective",
-        controlName = "ZO_ObjectiveCaptureMeter",
-        label = KFS_LABEL_OBJECTIVE,
-        width = 128,
-        height = 128,
-        postApply = function (control)
-            if ZO_ObjectiveCaptureMeterFrame then
-                ZO_ObjectiveCaptureMeterFrame:SetAnchor(BOTTOM, control, BOTTOM, 0, 0)
-            end
-        end,
-    },
-    { id = "playerInteract", controlName = "ZO_PlayerToPlayerAreaPromptContainer", label = KFS_LABEL_PLAYER_INTERACT, height = 30 },
-    { id = "synergy",        controlName = "ZO_SynergyTopLevelContainer",          label = KFS_LABEL_SYNERGY                      },
-    {
-        id = "compass",
-        controlName = "ZO_CompassFrame",
-        label = KFS_LABEL_COMPASS,
-        preApply = function ()
-            if COMPASS_FRAME and COMPASS_FRAME.ApplyStyle then
-                COMPASS_FRAME:ApplyStyle()
-            end
-        end,
-    },
-    {
-        id = "playerProgress",
-        controlName = "ZO_PlayerProgress",
-        label = KFS_LABEL_PLAYER_PROGRESS,
-        postApply = function ()
-            if PLAYER_PROGRESS_BAR then
-                PLAYER_PROGRESS_BAR:RefreshTemplate()
-            end
-        end,
-    },
-    {
-        id = "endlessDungeon",
-        controlName = "ZO_EndDunHUDTrackerContainer",
-        label = KFS_LABEL_ENDLESS_DUNGEON,
-        width = 230,
-        height = 100,
-    },
-    { id = "reticle", controlName = "ZO_ReticleContainerInteract", label = KFS_LABEL_RETICLE },
-    {
-        id = "lootHistory",
-        controlName = "ZO_LootHistoryControl_Gamepad",
-        label = KFS_LABEL_LOOT_HISTORY,
-        width = 280,
-        height = 400,
-        condition = function ()
-            return IsConsole()
-        end,
-    },
-    {
-        id = "tutorials",
-        controlName = "ZO_TutorialHudInfoTipGamepad",
-        label = KFS_LABEL_TUTORIALS,
-        condition = function ()
-            return IsConsole()
-        end,
-    },
-    {
-        id = "alerts",
-        controlName = "ZO_AlertTextNotification",
-        label = KFS_LABEL_ALERTS,
-        width = 600,
-        height = 56,
-        postApply = function (control, hasCustomPosition)
-            ZO_Alert(UI_ALERT_CATEGORY_ALERT, SOUNDS.NONE, " ")
-            local alertText = control:GetChild(1)
-            if IsInGamepadPreferredMode() and ZO_AlertTextNotificationGamepad then
-                alertText = ZO_AlertTextNotificationGamepad:GetChild(1)
-            end
-            if alertText and hasCustomPosition then
-                alertText.fadingControlBuffer.anchor = ZO_Anchor:New(TOPRIGHT, control, TOPRIGHT)
-            end
-        end,
-    },
-    {
-        id = "activeCombatTips",
-        controlName = "ZO_ActiveCombatTipsTip",
-        label = KFS_LABEL_COMBAT_TIPS,
-        width = 250,
-        height = 20,
-        postApply = function ()
-            if ACTIVE_COMBAT_TIP_SYSTEM and ACTIVE_COMBAT_TIP_SYSTEM.ApplyStyle then
-                ACTIVE_COMBAT_TIP_SYSTEM:ApplyStyle()
-            end
-        end,
-    },
-    {
-        id = "groupAnchorSmall",
-        controlName = "ZO_SmallGroupAnchorFrame",
-        label = KFS_LABEL_GROUP_SMALL,
-        width = 260,
-        height = 200,
-    },
-    {
-        id = "groupAnchorLarge1",
-        controlName = "ZO_LargeGroupAnchorFrame1",
-        label = KFS_LABEL_GROUP_LARGE_1,
-        width = 260,
-        height = 200,
-    },
-    {
-        id = "groupAnchorLarge2",
-        controlName = "ZO_LargeGroupAnchorFrame2",
-        label = KFS_LABEL_GROUP_LARGE_2,
-        width = 260,
-        height = 200,
-    },
-    {
-        id = "groupAnchorLarge3",
-        controlName = "ZO_LargeGroupAnchorFrame3",
-        label = KFS_LABEL_GROUP_LARGE_3,
-        width = 260,
-        height = 200,
-    },
-    {
-        id = "groupAnchorLarge4",
-        controlName = "ZO_LargeGroupAnchorFrame4",
-        label = KFS_LABEL_GROUP_LARGE_4,
-        width = 260,
-        height = 200,
-    },
-    {
-        id = "playerHealth",
-        controlName = "ZO_PlayerAttributeHealth",
-        label = KFS_LABEL_PLAYER_HEALTH,
-        width = 300,
-        height = 60,
-    },
-    {
-        id = "playerMagicka",
-        controlName = "ZO_PlayerAttributeMagicka",
-        label = KFS_LABEL_PLAYER_MAGICKA,
-        width = 300,
-        height = 60,
-    },
-    {
-        id = "playerStamina",
-        controlName = "ZO_PlayerAttributeStamina",
-        label = KFS_LABEL_PLAYER_STAMINA,
-        width = 300,
-        height = 60,
-    },
-    {
-        id = "playerWerewolf",
-        controlName = "ZO_PlayerAttributeWerewolf",
-        label = KFS_LABEL_PLAYER_WEREWOLF,
-        width = 300,
-        height = 60,
-        condition = function ()
-            return GetControl("ZO_PlayerAttributeWerewolf") ~= nil
-        end,
-    },
-    {
-        id = "playerMount",
-        controlName = "ZO_PlayerAttributeMountStamina",
-        label = KFS_LABEL_PLAYER_MOUNT,
-        width = 300,
-        height = 60,
-        condition = function ()
-            return GetControl("ZO_PlayerAttributeMountStamina") ~= nil
-        end,
-    },
-    {
-        id = "playerSiege",
-        controlName = "ZO_PlayerAttributeSiegeHealth",
-        label = KFS_LABEL_PLAYER_SIEGE,
-        width = 300,
-        height = 60,
-        condition = function ()
-            return GetControl("ZO_PlayerAttributeSiegeHealth") ~= nil
-        end,
-    },
-    {
-        id = "buffSelf",
-        controlName = "ZO_BuffDebuffTopLevelSelfContainer",
-        label = KFS_LABEL_BUFF_SELF,
-        width = 420,
-        height = 220,
-        condition = function ()
-            return GetControl("ZO_BuffDebuffTopLevelSelfContainer") ~= nil
-        end,
-    },
-    {
-        id = "buffTarget",
-        controlName = "ZO_BuffDebuffTopLevelTargetContainer",
-        label = KFS_LABEL_BUFF_TARGET,
-        width = 420,
-        height = 220,
-        condition = function ()
-            return GetControl("ZO_BuffDebuffTopLevelTargetContainer") ~= nil
-        end,
-    },
-    {
-        id = "miniChat",
-        controlName = "ZO_ChatWindow",
-        label = KFS_LABEL_CHAT_MINI,
-        width = 400,
-        height = 200,
-    },
-    {
-        id = "gamepadChat",
-        controlName = "ZO_GamepadTextChat",
-        label = KFS_LABEL_CHAT_GAMEPAD,
-        width = 400,
-        height = 200,
-        condition = function ()
-            return GetControl("ZO_GamepadTextChat") ~= nil
-        end,
-    },
-}
-
---- @param definition KhajiitFengShuiPanelDefinition
---- @return Control|nil
-local function ResolveControl(definition)
-    if definition.condition and not definition.condition() then
-        return nil
-    end
-    local control = _G[definition.controlName]
-    if not control and GetControl then
-        control = GetControl(definition.controlName)
-    end
-    if not control or not control.SetAnchor then
-        return nil
-    end
-    return control
+local function BuildOverlayMessage(panel, left, top)
+    return PanelUtils.formatPositionMessage(left, top, PanelDefinitions.getLabel(panel.definition))
 end
 
 --- @class KhajiitFengShuiPanel
@@ -302,62 +45,87 @@ end
 --- @field handler MoveableControl
 --- @field label LabelControl
 
---- @param parent Control
---- @param text string
---- @return LabelControl
-local function CreateOverlayLabel(parent, text)
-    local label = wm:CreateControl(nil, parent, CT_LABEL)
-    label:SetFont("ZoFontGamepadHeaderDataValue")
-    label:SetHorizontalAlignment(TEXT_ALIGN_LEFT)
-    label:SetVerticalAlignment(TEXT_ALIGN_TOP)
-    label:SetAnchor(TOPLEFT, parent, TOPLEFT, 4, 4)
-    label:SetColor(1, 1, 0, 1)
-    label:SetDrawLayer(DL_OVERLAY)
-    label:SetDrawLevel(5)
-    label:SetDrawTier(DT_MEDIUM)
-    label:SetText(text)
-    local bg = wm:CreateControl(nil, label, CT_BACKDROP)
-    bg:SetAnchorFill()
-    bg:SetCenterColor(0, 0, 0, 0.75)
-    bg:SetEdgeColor(0, 0, 0, 0)
-    bg:SetDrawLayer(DL_BACKGROUND)
-    bg:SetDrawLevel(4)
-    bg:SetDrawTier(DT_LOW)
-    return label
-end
-
---- @param parent Control
---- @return BackdropControl
-local function CreateOverlayBackdrop(parent)
-    local backdrop = wm:CreateControl(nil, parent, CT_BACKDROP)
-    backdrop:SetAnchorFill()
-    backdrop:SetCenterColor(0.05, 0.6, 0.9, 0.25)
-    backdrop:SetEdgeColor(0.05, 0.6, 0.9, 0.9)
-    backdrop:SetEdgeTexture("", 2, 1, 1, 1)
-    backdrop:SetDrawLayer(DL_OVERLAY)
-    backdrop:SetDrawLevel(2)
-    backdrop:SetDrawTier(DT_LOW)
-    return backdrop
-end
-
---- @param panel KhajiitFengShuiPanel
---- @param message string
 local function UpdateOverlayLabel(panel, message)
-    if panel.label then
-        panel.label:SetText(message)
-    end
+    PanelUtils.updateOverlayLabel(panel.label, message)
 end
 
 --- @param panel KhajiitFengShuiPanel
 --- @return string
 local function BuildPositionText(panel)
-    if not panel or not panel.handler then
+    if not (panel and panel.handler) then
         return "N/A"
     end
-    local position = panel.handler:GetLeftTopPosition(true)
-    local left = position.left or 0
-    local top = position.top or 0
+    local left, top = PanelUtils.getAnchorPosition(panel.handler, true)
     return string.format("%d, %d", left, top)
+end
+
+--- @param panel KhajiitFengShuiPanel
+local function SyncOverlaySize(panel)
+    PanelUtils.syncOverlaySize(panel)
+end
+
+function KhajiitFengShui:AddPanelSetting(panel)
+    if not self.settingsPanel or panel.settingAdded then
+        return
+    end
+
+    self.settingsPanel:AddSetting(
+        {
+            type = LHAS.ST_BUTTON,
+            label = PanelDefinitions.getLabel(panel.definition),
+            tooltip = function ()
+                return string.format("%s\n%s", GetString(KFS_MOVE_BUTTON_DESC), BuildPositionText(panel))
+            end,
+            buttonText = GetString(KFS_MOVE_BUTTON),
+            disable = function ()
+                return panel.handler == nil
+            end,
+            clickHandler = function ()
+                if self.activePanelId == panel.definition.id then
+                    self:StopControlMove()
+                else
+                    self:StartControlMove(panel.definition.id)
+                end
+            end,
+        })
+    panel.settingAdded = true
+end
+
+function KhajiitFengShui:TryCreatePanel(definition)
+    if not definition then
+        return nil
+    end
+
+    local control = PanelDefinitions.resolveControl(definition)
+    if not control then
+        return nil
+    end
+
+    local existing = self.panelLookup[definition.id]
+    if existing then
+        existing.control = control
+        return existing
+    end
+
+    local left = control:GetLeft() or 0
+    local top = control:GetTop() or 0
+    local panel =
+    {
+        definition = definition,
+        control = control,
+        defaultPosition =
+        {
+            left = left,
+            top = top,
+        },
+    }
+
+    table.insert(self.panels, panel)
+    self.panelLookup[definition.id] = panel
+
+    self:CreateMover(panel)
+    self:AddPanelSetting(panel)
+    return panel
 end
 
 --- @param panel KhajiitFengShuiPanel
@@ -389,16 +157,25 @@ function KhajiitFengShui:RefreshAllPanels()
     end
 end
 
---- @param control Control
---- @param width number?
---- @param height number?
-local function ApplySizing(control, width, height)
-    if width then
-        control:SetWidth(width)
+function KhajiitFengShui:EnsureCompassHook()
+    if self.compassHookRegistered then
+        return
     end
-    if height then
-        control:SetHeight(height)
+
+    if not (COMPASS_FRAME and COMPASS_FRAME.ApplyStyle and ZO_PostHook) then
+        return
     end
+
+    ZO_PostHook(COMPASS_FRAME, "ApplyStyle", function ()
+        local compassPanel = self.panelLookup and self.panelLookup.compass
+        if not (compassPanel and compassPanel.handler and compassPanel.control and compassPanel.control.SetAnchor) then
+            return
+        end
+        local left, top = PanelUtils.getAnchorPosition(compassPanel.handler, true)
+        PanelUtils.applyControlAnchor(compassPanel.control, left, top)
+    end)
+
+    self.compassHookRegistered = true
 end
 
 function KhajiitFengShui:GetSnapSize()
@@ -406,22 +183,6 @@ function KhajiitFengShui:GetSnapSize()
         return 0
     end
     return self.savedVars.grid.size or self.defaults.grid.size
-end
-
---- @param panel KhajiitFengShuiPanel
---- @param left number
---- @param top number
-local function ApplyControlAnchor(panel, left, top)
-    local control = panel.control
-    control:ClearAnchors()
-    control:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, left, top)
-end
-
---- @param panel KhajiitFengShuiPanel
-local function SyncOverlaySize(panel)
-    local width = panel.control:GetWidth()
-    local height = panel.control:GetHeight()
-    panel.overlay:SetDimensions(width, height)
 end
 
 --- @param panel KhajiitFengShuiPanel
@@ -445,8 +206,8 @@ function KhajiitFengShui:ApplySavedPosition(panel)
         panel.definition.preApply(panel.control, hasCustom)
     end
 
-    local leftTop = handler:GetLeftTopPosition()
-    ApplyControlAnchor(panel, leftTop.left or 0, leftTop.top or 0)
+    local left, top = PanelUtils.getAnchorPosition(handler)
+    PanelUtils.applyControlAnchor(panel.control, left, top)
 
     if panel.definition.postApply then
         panel.definition.postApply(panel.control, hasCustom)
@@ -454,8 +215,8 @@ function KhajiitFengShui:ApplySavedPosition(panel)
 
     SyncOverlaySize(panel)
 
-    local labelText = string.format("%d, %d | %s", leftTop.left or 0, leftTop.top or 0, GetPanelLabel(panel.definition))
-    UpdateOverlayLabel(panel, labelText)
+    local message = BuildOverlayMessage(panel, left, top)
+    UpdateOverlayLabel(panel, message)
     self:RefreshPanelState(panel)
 end
 
@@ -485,8 +246,8 @@ end
 function KhajiitFengShui:OnMoveStart(panel, handler)
     local updateName = string.format("%s_MoveUpdate_%s", self.name, panel.definition.id)
     em:RegisterForUpdate(updateName, 200, function ()
-        local leftTop = handler:GetLeftTopPosition()
-        local message = string.format("%d, %d | %s", leftTop.left or 0, leftTop.top or 0, GetPanelLabel(panel.definition))
+        local left, top = PanelUtils.getAnchorPosition(handler)
+        local message = BuildOverlayMessage(panel, left, top)
         UpdateOverlayLabel(panel, message)
     end)
 end
@@ -499,16 +260,16 @@ function KhajiitFengShui:OnMoveStop(panel, handler, newPos)
     em:UnregisterForUpdate(updateName)
 
     local position = newPos or handler:GetPosition(true)
-    self.savedVars.positions[panel.definition.id] = CopyPosition(position)
+    self.savedVars.positions[panel.definition.id] = PanelUtils.copyPosition(position)
 
-    local leftTop = handler:GetLeftTopPosition(true)
-    ApplyControlAnchor(panel, leftTop.left or 0, leftTop.top or 0)
+    local left, top = PanelUtils.getAnchorPosition(handler, true)
+    PanelUtils.applyControlAnchor(panel.control, left, top)
 
     if panel.definition.postApply then
         panel.definition.postApply(panel.control, true)
     end
 
-    local message = string.format("%d, %d | %s", leftTop.left or 0, leftTop.top or 0, GetPanelLabel(panel.definition))
+    local message = BuildOverlayMessage(panel, left, top)
     UpdateOverlayLabel(panel, message)
 
     handler:ToggleGamepadMove(false)
@@ -519,19 +280,8 @@ end
 --- @param panel KhajiitFengShuiPanel
 --- @return TopLevelWindow
 local function CreateOverlay(panel)
-    local overlay = wm:CreateTopLevelWindow(string.format("KhajiitFengShuiMover_%s", panel.definition.id))
-    overlay:SetMouseEnabled(true)
-    overlay:SetMovable(true)
-    overlay:SetClampedToScreen(true)
-    overlay:SetHidden(true)
-    overlay:SetDrawLayer(DL_OVERLAY)
-    overlay:SetDrawTier(DT_HIGH)
-    overlay:SetDrawLevel(5)
-    overlay:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, panel.control:GetLeft(), panel.control:GetTop())
-
-    CreateOverlayBackdrop(overlay)
-    panel.label = CreateOverlayLabel(overlay, "0, 0")
-
+    local overlay, label = PanelUtils.createOverlay(wm, panel.definition.id, panel.control)
+    panel.label = label
     return overlay
 end
 
@@ -551,8 +301,11 @@ function KhajiitFengShui:CreateMover(panel)
     panel.handler:SetSnap(snapSize > 0 and snapSize or nil)
     panel.handler:ToggleLock(true)
 
-    ApplySizing(panel.control, panel.definition.width, panel.definition.height)
+    PanelUtils.applySizing(panel.control, panel.definition.width, panel.definition.height)
     self:ApplySavedPosition(panel)
+    if panel.definition.id == "compass" then
+        self:EnsureCompassHook()
+    end
 end
 
 function KhajiitFengShui:ApplySnapSettings()
@@ -581,15 +334,15 @@ function KhajiitFengShui:ResetPositions()
         if panel.handler then
             self.savedVars.positions[panel.definition.id] = nil
             if panel.defaultPosition then
-                panel.handler:UpdatePosition(CopyPosition(panel.defaultPosition))
+                panel.handler:UpdatePosition(PanelUtils.copyPosition(panel.defaultPosition))
                 if panel.definition.preApply then
                     panel.definition.preApply(panel.control, false)
                 end
-                ApplyControlAnchor(panel, panel.defaultPosition.left or 0, panel.defaultPosition.top or 0)
+                PanelUtils.applyControlAnchor(panel.control, panel.defaultPosition.left or 0, panel.defaultPosition.top or 0)
                 if panel.definition.postApply then
                     panel.definition.postApply(panel.control, false)
                 end
-                local message = string.format("%d, %d | %s", panel.defaultPosition.left or 0, panel.defaultPosition.top or 0, GetPanelLabel(panel.definition))
+                local message = BuildOverlayMessage(panel, panel.defaultPosition.left or 0, panel.defaultPosition.top or 0)
                 UpdateOverlayLabel(panel, message)
             end
         end
@@ -599,6 +352,45 @@ function KhajiitFengShui:ResetPositions()
     end
     self:ApplySnapSettings()
     self:RefreshAllPanels()
+end
+
+function KhajiitFengShui:OnTargetFrameCreated(targetFrame)
+    local definition = self.definitionLookup and self.definitionLookup.targetFrame
+    if not definition then
+        return
+    end
+
+    local control = targetFrame and targetFrame.GetPrimaryControl and targetFrame:GetPrimaryControl()
+    if control then
+        definition.controlName = control:GetName()
+    end
+
+    local panel = self:TryCreatePanel(definition)
+    if not panel then
+        return
+    end
+
+    if control then
+        panel.control = control
+    end
+
+    if panel.control and not panel.defaultPosition then
+        panel.defaultPosition =
+        {
+            left = panel.control:GetLeft() or 0,
+            top = panel.control:GetTop() or 0,
+        }
+    end
+
+    if panel.control then
+        self:ApplySavedPosition(panel)
+    end
+
+    if panel.definition.id == "compass" then
+        self:EnsureCompassHook()
+    end
+
+    self:AddPanelSetting(panel)
 end
 
 --- @param oldState number
@@ -688,55 +480,22 @@ function KhajiitFengShui:CreateSettingsMenu()
             type = LHAS.ST_SECTION,
             label = GetString(KFS_SECTION_CONTROLS),
         })
-
+    self.settingsPanel = settings
     for _, panel in ipairs(self.panels) do
-        settings:AddSetting(
-            {
-                type = LHAS.ST_BUTTON,
-                label = GetPanelLabel(panel.definition),
-                tooltip = function ()
-                    return string.format("%s\n%s", GetString(KFS_MOVE_BUTTON_DESC), BuildPositionText(panel))
-                end,
-                buttonText = GetString(KFS_MOVE_BUTTON),
-                disable = function ()
-                    return panel.handler == nil
-                end,
-                clickHandler = function ()
-                    if self.activePanelId == panel.definition.id then
-                        self:StopControlMove()
-                    else
-                        self:StartControlMove(panel.definition.id)
-                    end
-                end,
-            })
+        self:AddPanelSetting(panel)
     end
-
 end
 
 function KhajiitFengShui:InitializePanels()
-    for _, definition in ipairs(DEFAULT_PANEL_DEFINITIONS) do
-        local control = ResolveControl(definition)
-        if control then
-            local left = control:GetLeft() or 0
-            local top = control:GetTop() or 0
-            local panel =
-            {
-                definition = definition,
-                control = control,
-                defaultPosition =
-                {
-                    left = left,
-                    top = top,
-                },
-            }
-            table.insert(self.panels, panel)
-            self.panelLookup[definition.id] = panel
-        end
+    self.definitionLookup = {}
+    self.panels = {}
+    self.panelLookup = {}
+
+    for _, definition in ipairs(PanelDefinitions.getAll()) do
+        self.definitionLookup[definition.id] = definition
+        self:TryCreatePanel(definition)
     end
 
-    for _, panel in ipairs(self.panels) do
-        self:CreateMover(panel)
-    end
     self:RefreshAllPanels()
 
     local scene = sceneManager:GetScene("gameMenuInGame")
@@ -767,7 +526,7 @@ function KhajiitFengShui:OnAddOnLoaded(event, addonName)
 
     self.savedVars = ZO_SavedVars:NewAccountWide("KhajiitFengShui_SavedVariables", 1, nil, self.defaults)
 
-    self.savedVars.grid = self.savedVars.grid or CopyPosition(self.defaults.grid)
+    self.savedVars.grid = self.savedVars.grid or PanelUtils.copyPosition(self.defaults.grid)
     if self.savedVars.grid.enabled == nil then
         self.savedVars.grid.enabled = self.defaults.grid.enabled
     end
@@ -781,6 +540,10 @@ function KhajiitFengShui:OnAddOnLoaded(event, addonName)
     self:ApplyAllPositions()
     self:ApplySnapSettings()
     self:RefreshAllPanels()
+
+    CALLBACK_MANAGER:RegisterCallback("TargetFrameCreated", function (targetFrame)
+        self:OnTargetFrameCreated(targetFrame)
+    end)
 
     em:RegisterForEvent(self.name, EVENT_PLAYER_ACTIVATED, function ()
         self:ApplyAllPositions()
