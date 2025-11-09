@@ -1,5 +1,5 @@
 local ADDON_NAME = "KhajiitFengShui"
-local ADDON_VERSION = "1.0.0"
+local ADDON_VERSION = "1.0.1"
 
 --- @class KhajiitFengShui
 local KhajiitFengShui =
@@ -238,6 +238,26 @@ local DEFAULT_PANEL_DEFINITIONS =
         height = 60,
         condition = function ()
             return GetControl("ZO_PlayerAttributeSiegeHealth") ~= nil
+        end,
+    },
+    {
+        id = "buffSelf",
+        controlName = "ZO_BuffDebuffTopLevelSelfContainer",
+        label = KFS_LABEL_BUFF_SELF,
+        width = 420,
+        height = 220,
+        condition = function ()
+            return GetControl("ZO_BuffDebuffTopLevelSelfContainer") ~= nil
+        end,
+    },
+    {
+        id = "buffTarget",
+        controlName = "ZO_BuffDebuffTopLevelTargetContainer",
+        label = KFS_LABEL_BUFF_TARGET,
+        width = 420,
+        height = 220,
+        condition = function ()
+            return GetControl("ZO_BuffDebuffTopLevelTargetContainer") ~= nil
         end,
     },
     {
@@ -540,18 +560,29 @@ function KhajiitFengShui:ApplySnapSettings()
     end
 end
 
+function KhajiitFengShui:StopControlMove()
+    if not self.activePanelId then
+        return
+    end
+    local panel = self.panelLookup[self.activePanelId]
+    if panel and panel.handler then
+        panel.handler:ToggleGamepadMove(false)
+        panel.handler:ToggleLock(true)
+        self:OnMoveStop(panel, panel.handler, panel.handler:GetPosition(true))
+    end
+end
+
 function KhajiitFengShui:ResetPositions()
     for _, panel in ipairs(self.panels) do
         if panel.handler then
             self.savedVars.positions[panel.definition.id] = nil
             if panel.defaultPosition then
                 panel.handler:UpdatePosition(CopyPosition(panel.defaultPosition))
-                local leftTop = panel.handler:GetLeftTopPosition(true)
-                ApplyControlAnchor(panel, leftTop.left or 0, leftTop.top or 0)
+                ApplyControlAnchor(panel, panel.defaultPosition.left or 0, panel.defaultPosition.top or 0)
                 if panel.definition.postApply then
                     panel.definition.postApply(panel.control, false)
                 end
-                local message = string.format("%d, %d | %s", leftTop.left or 0, leftTop.top or 0, GetPanelLabel(panel.definition))
+                local message = string.format("%d, %d | %s", panel.defaultPosition.left or 0, panel.defaultPosition.top or 0, GetPanelLabel(panel.definition))
                 UpdateOverlayLabel(panel, message)
             end
         end
@@ -664,10 +695,15 @@ function KhajiitFengShui:CreateSettingsMenu()
                     return panel.handler == nil
                 end,
                 clickHandler = function ()
-                    self:StartControlMove(panel.definition.id)
+                    if self.activePanelId == panel.definition.id then
+                        self:StopControlMove()
+                    else
+                        self:StartControlMove(panel.definition.id)
+                    end
                 end,
             })
     end
+
 end
 
 function KhajiitFengShui:InitializePanels()

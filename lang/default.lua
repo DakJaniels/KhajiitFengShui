@@ -45,6 +45,8 @@ local strings =
     KFS_LABEL_PLAYER_SIEGE = "Siege Health Bar",
     KFS_LABEL_CHAT_MINI = "Chat Window",
     KFS_LABEL_CHAT_GAMEPAD = "Gamepad Chat Window",
+    KFS_LABEL_BUFF_SELF = "Buffs & Debuffs (Self)",
+    KFS_LABEL_BUFF_TARGET = "Buffs & Debuffs (Target)",
 }
 
 for stringId, value in pairs(strings) do
