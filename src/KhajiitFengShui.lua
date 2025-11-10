@@ -12,6 +12,7 @@ local KhajiitFengShui =
     panelLookup = {},
     activePanelId = nil,
     compassHookRegistered = false,
+    buffAnimationHookRegistered = false,
 }
 
 KhajiitFengShui.defaults =
@@ -22,6 +23,7 @@ KhajiitFengShui.defaults =
         size = 16,
     },
     positions = {},
+    buffAnimationsEnabled = false,
 }
 
 local LCA  --- @type LibCombatAlerts
@@ -30,6 +32,7 @@ local LHAS --- @type LibHarvensAddonSettings
 local wm = GetWindowManager()
 local em = GetEventManager()
 local sceneManager = SCENE_MANAGER
+local SecurePostHook = SecurePostHook
 
 local PanelUtils = KFS_PanelUtils
 local PanelDefinitions = KFS_PanelDefinitions
@@ -176,6 +179,28 @@ function KhajiitFengShui:EnsureCompassHook()
     end)
 
     self.compassHookRegistered = true
+end
+
+function KhajiitFengShui:RegisterBuffAnimationHook()
+    if self.buffAnimationHookRegistered then
+        return
+    end
+    if not SecurePostHook then
+        return
+    end
+    local addon = self
+    SecurePostHook("ZO_BuffDebuffIcon_OnInitialized", function (control)
+        if addon.savedVars and addon.savedVars.buffAnimationsEnabled then
+            control.showCooldown = true
+        end
+    end)
+    self.buffAnimationHookRegistered = true
+end
+
+function KhajiitFengShui:UpdateBuffAnimationHook()
+    if self.savedVars and self.savedVars.buffAnimationsEnabled then
+        self:RegisterBuffAnimationHook()
+    end
 end
 
 function KhajiitFengShui:GetSnapSize()
@@ -465,6 +490,20 @@ function KhajiitFengShui:CreateSettingsMenu()
                 end,
             },
             {
+                type = LHAS.ST_CHECKBOX,
+                label = GetString(KFS_ENABLE_BUFF_ANIMATIONS),
+                tooltip = GetString(KFS_ENABLE_BUFF_ANIMATIONS_DESC),
+                default = self.defaults.buffAnimationsEnabled,
+                getFunction = function ()
+                    return self.savedVars.buffAnimationsEnabled
+                end,
+                setFunction = function (value)
+                    self.savedVars.buffAnimationsEnabled = value
+                    self:UpdateBuffAnimationHook()
+                    ReloadUI("ingame")
+                end,
+            },
+            {
                 type = LHAS.ST_BUTTON,
                 label = GetString(KFS_RESET_ALL_DESC),
                 tooltip = GetString(KFS_RESET_ALL_DESC),
@@ -534,6 +573,11 @@ function KhajiitFengShui:OnAddOnLoaded(event, addonName)
         self.savedVars.grid.size = self.defaults.grid.size
     end
     self.savedVars.positions = self.savedVars.positions or {}
+    if self.savedVars.buffAnimationsEnabled == nil then
+        self.savedVars.buffAnimationsEnabled = self.defaults.buffAnimationsEnabled
+    end
+
+    self:UpdateBuffAnimationHook()
 
     self:InitializePanels()
     self:CreateSettingsMenu()
