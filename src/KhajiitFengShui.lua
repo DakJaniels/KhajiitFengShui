@@ -1,5 +1,5 @@
 local ADDON_NAME = "KhajiitFengShui"
-local ADDON_VERSION = "1.0.7"
+local ADDON_VERSION = "1.0.8"
 
 --- @class KhajiitFengShui
 local KhajiitFengShui =
@@ -28,6 +28,7 @@ local KhajiitFengShui =
     keybindStripBackgroundTextureOriginalHeight = nil,
     keybindStripCenterAdjusted = false,
     keybindStripBackgroundWasHidden = nil,
+    keybindFragmentSceneName = nil,
     keybindScenes = nil,
     actionLayerName = nil,
     actionLayerActive = false,
@@ -393,6 +394,15 @@ function KhajiitFengShui:OnMoveStop(panel, handler, newPos)
     panel.gamepadActive = false
     self.activePanelId = nil
     self:RefreshAllPanels()
+
+    if self.editModeFocusId then
+        local focusedPanel = self.panelLookup[self.editModeFocusId]
+        if focusedPanel and focusedPanel.handler then
+            focusedPanel.handler:ToggleLock(false)
+            focusedPanel.handler:ToggleGamepadMove(true, 10000)
+            focusedPanel.gamepadActive = true
+        end
+    end
 end
 
 --- @param panel KhajiitFengShuiPanel
@@ -408,6 +418,9 @@ function KhajiitFengShui:CreateMover(panel)
     panel.overlay = CreateOverlay(panel)
 
     panel.handler = LCA.MoveableControl:New(panel.overlay, { color = 0x00C0FFFF, size = 2 })
+    if panel.handler.SetCenterHighlightControl and panel.overlay then
+        panel.handler:SetCenterHighlightControl(panel.overlay)
+    end
     panel.handler:RegisterCallback(string.format("%s_MoveStart_%s", self.name, panel.definition.id), LCA.EVENT_CONTROL_MOVE_START, function ()
         self:OnMoveStart(panel, panel.handler)
     end)
@@ -622,6 +635,14 @@ function KhajiitFengShui:RemoveKeybindStrip()
     self.keybindStripActive = false
 
     self:ApplyKeybindStripSizing()
+
+    if self.keybindFragmentSceneName then
+        local scene = sceneManager:GetScene(self.keybindFragmentSceneName)
+        if scene and scene:HasFragment(KEYBIND_STRIP_GAMEPAD_FRAGMENT) then
+            scene:RemoveFragment(KEYBIND_STRIP_GAMEPAD_FRAGMENT)
+        end
+        self.keybindFragmentSceneName = nil
+    end
 end
 
 local REDUCED_KEYBIND_STRIP_HEIGHT = 48
@@ -693,6 +714,7 @@ function KhajiitFengShui:OnKeybindSceneStateChange(sceneName, newState)
         local scene = sceneManager:GetScene(sceneName)
         if scene and not scene:HasFragment(KEYBIND_STRIP_GAMEPAD_FRAGMENT) then
             scene:AddFragment(KEYBIND_STRIP_GAMEPAD_FRAGMENT)
+            self.keybindFragmentSceneName = sceneName
         end
         if not self.keybindStripActive then
             self:RefreshKeybindStrip()
@@ -701,6 +723,9 @@ function KhajiitFengShui:OnKeybindSceneStateChange(sceneName, newState)
         local scene = sceneManager:GetScene(sceneName)
         if scene and scene:HasFragment(KEYBIND_STRIP_GAMEPAD_FRAGMENT) then
             scene:RemoveFragment(KEYBIND_STRIP_GAMEPAD_FRAGMENT)
+        end
+        if self.keybindFragmentSceneName == sceneName then
+            self.keybindFragmentSceneName = nil
         end
         self:RemoveKeybindStrip()
     end
@@ -736,6 +761,12 @@ function KhajiitFengShui:RefreshKeybindStrip()
     if not allowed then
         self:RemoveKeybindStrip()
         return
+    end
+
+    currentScene = sceneManager:GetCurrentScene()
+    if KEYBIND_STRIP_GAMEPAD_FRAGMENT and currentScene and not currentScene:HasFragment(KEYBIND_STRIP_GAMEPAD_FRAGMENT) then
+        currentScene:AddFragment(KEYBIND_STRIP_GAMEPAD_FRAGMENT)
+        self.keybindFragmentSceneName = currentName
     end
 
     if self.keybindStripActive then
@@ -777,7 +808,7 @@ function KhajiitFengShui:InitializeKeybindStrip()
     end
 
     self:EnsureKeybindDescriptor()
-    self.keybindScenes = { "hud", "hudui", "hudBattleground", "hudCyclingRace" }
+    self.keybindScenes = { "hud", "hudui", "gamepadInteract"}
     for _, sceneName in ipairs(self.keybindScenes) do
         self:RegisterKeybindScene(sceneName)
     end
