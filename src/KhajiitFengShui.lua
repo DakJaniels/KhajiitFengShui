@@ -1,5 +1,5 @@
 local ADDON_NAME = "KhajiitFengShui"
-local ADDON_VERSION = "1.0.5"
+local ADDON_VERSION = "1.0.6"
 
 --- @class KhajiitFengShui
 local KhajiitFengShui =
@@ -21,7 +21,7 @@ KhajiitFengShui.defaults =
     grid =
     {
         enabled = false,
-        size = 16,
+        size = 15,
     },
     positions = {},
     buffAnimationsEnabled = false,
@@ -316,7 +316,7 @@ end
 --- @param panel KhajiitFengShuiPanel
 --- @return TopLevelWindow
 local function CreateOverlay(panel)
-    local overlay, label = PanelUtils.createOverlay(wm, panel.definition.id, panel.control)
+    local overlay, label = PanelUtils.createOverlay(panel.definition.id, panel.control)
     panel.label = label
     return overlay
 end
@@ -579,6 +579,14 @@ function KhajiitFengShui:ApplyAllPositions()
     end
 end
 
+--- @param eventId integer
+--- @param initial boolean
+function KhajiitFengShui:EVENT_PLAYER_ACTIVATED(eventId, initial)
+    zo_callLater(function ()
+                     self:ApplyAllPositions()
+                 end, 200)
+end
+
 --- @param event number
 --- @param addonName string
 function KhajiitFengShui:OnAddOnLoaded(event, addonName)
@@ -621,8 +629,8 @@ function KhajiitFengShui:OnAddOnLoaded(event, addonName)
         self:OnTargetFrameCreated(targetFrame)
     end)
 
-    em:RegisterForEvent(self.name, EVENT_PLAYER_ACTIVATED, function ()
-        self:ApplyAllPositions()
+    em:RegisterForEvent(self.name, EVENT_PLAYER_ACTIVATED, function (eventId, initial)
+        self:EVENT_PLAYER_ACTIVATED(eventId, initial)
     end)
 end
 

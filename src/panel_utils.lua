@@ -14,39 +14,49 @@ function PanelUtils.copyPosition(position)
 end
 
 local function computeRelativeOffsets(control, point, relativePoint, left, top, definition)
-    local target = GuiRoot
-    local offsetX = left
-    local offsetY = top
-    local fallbackWidth = definition and definition.width or 0
-    local fallbackHeight = definition and definition.height or 0
-    local controlWidth = control:GetWidth()
-    local controlHeight = control:GetHeight()
+    local rootWidth = GuiRoot:GetWidth() or 0
+    local rootHeight = GuiRoot:GetHeight() or 0
+    local owner = ZO_GetControlOwnerObject(control)
 
-    if point == BOTTOMLEFT and relativePoint == BOTTOMLEFT then
-        local height = (controlHeight ~= nil and controlHeight ~= 0) and controlHeight or fallbackHeight or 0
-        local guiHeight = target:GetHeight() or 0
-        offsetY = (top + height) - guiHeight
-    elseif point == TOPRIGHT and relativePoint == TOPRIGHT then
-        local width = (controlWidth ~= nil and controlWidth ~= 0) and controlWidth or fallbackWidth or 0
-        local guiWidth = target:GetWidth() or 0
-        offsetX = (left + width) - guiWidth
-    elseif point == BOTTOMRIGHT and relativePoint == BOTTOMRIGHT then
-        local width = (controlWidth ~= nil and controlWidth ~= 0) and controlWidth or fallbackWidth or 0
-        local height = (controlHeight ~= nil and controlHeight ~= 0) and controlHeight or fallbackHeight or 0
-        local guiWidth = target:GetWidth() or 0
-        local guiHeight = target:GetHeight() or 0
-        offsetX = (left + width) - guiWidth
-        offsetY = (top + height) - guiHeight
-    elseif point == CENTER and relativePoint == CENTER then
-        local width = (controlWidth ~= nil and controlWidth ~= 0) and controlWidth or fallbackWidth or 0
-        local height = (controlHeight ~= nil and controlHeight ~= 0) and controlHeight or fallbackHeight or 0
-        local guiWidth = target:GetWidth() or 0
-        local guiHeight = target:GetHeight() or 0
-        offsetX = (left + (width * 0.5)) - (guiWidth * 0.5)
-        offsetY = (top + (height * 0.5)) - (guiHeight * 0.5)
+    local function resolveDimension(currentSize, fallbackValue)
+        local size = currentSize
+        if size and size ~= 0 then
+            return size
+        end
+        if definition then
+            local evaluated = ZO_Eval(fallbackValue, control, owner)
+            if evaluated then
+                return evaluated
+            end
+        end
+        return 0
     end
 
-    return offsetX, offsetY
+    local controlWidth = resolveDimension(control.GetWidth and control:GetWidth(), definition and definition.width)
+    local controlHeight = resolveDimension(control.GetHeight and control:GetHeight(), definition and definition.height)
+
+    if point == BOTTOMLEFT and relativePoint == BOTTOMLEFT then
+        return left, (top + controlHeight) - rootHeight
+    elseif point == TOPRIGHT and relativePoint == TOPRIGHT then
+        return (left + controlWidth) - rootWidth, top
+    elseif point == BOTTOMRIGHT and relativePoint == BOTTOMRIGHT then
+        return (left + controlWidth) - rootWidth, (top + controlHeight) - rootHeight
+    elseif point == TOP and relativePoint == TOP then
+        return (left + (controlWidth * 0.5)) - (rootWidth * 0.5), top
+    elseif point == BOTTOM and relativePoint == BOTTOM then
+        return (left + (controlWidth * 0.5)) - (rootWidth * 0.5),
+            (top + controlHeight) - rootHeight
+    elseif point == LEFT and relativePoint == LEFT then
+        return left, (top + (controlHeight * 0.5)) - (rootHeight * 0.5)
+    elseif point == RIGHT and relativePoint == RIGHT then
+        return (left + controlWidth) - rootWidth,
+            (top + (controlHeight * 0.5)) - (rootHeight * 0.5)
+    elseif point == CENTER and relativePoint == CENTER then
+        return (left + (controlWidth * 0.5)) - (rootWidth * 0.5),
+            (top + (controlHeight * 0.5)) - (rootHeight * 0.5)
+    end
+
+    return left, top
 end
 
 function PanelUtils.applyControlAnchor(panel, left, top)
@@ -81,11 +91,24 @@ function PanelUtils.applyControlAnchor(panel, left, top)
 end
 
 function PanelUtils.applySizing(control, width, height)
-    if width then
-        control:SetWidth(width)
+    if not control then
+        return
     end
-    if height then
-        control:SetHeight(height)
+
+    local owner = ZO_GetControlOwnerObject(control)
+
+    if width ~= nil then
+        local resolvedWidth = ZO_Eval(width, control, owner)
+        if resolvedWidth then
+            control:SetWidth(resolvedWidth)
+        end
+    end
+
+    if height ~= nil then
+        local resolvedHeight = ZO_Eval(height, control, owner)
+        if resolvedHeight then
+            control:SetHeight(resolvedHeight)
+        end
     end
 end
 
@@ -93,7 +116,8 @@ function PanelUtils.formatPositionMessage(left, top, labelText)
     return string.format("%d, %d | %s", left or 0, top or 0, labelText)
 end
 
-function PanelUtils.createOverlay(windowManager, panelId, control)
+function PanelUtils.createOverlay(panelId, control)
+    local windowManager = GetWindowManager()
     local overlay = windowManager:CreateTopLevelWindow(string.format("KhajiitFengShuiMover_%s", panelId))
     overlay:SetMouseEnabled(true)
     overlay:SetMovable(true)

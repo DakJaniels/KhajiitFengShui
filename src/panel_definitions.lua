@@ -30,6 +30,18 @@ local definitions =
         id = "compass",
         controlName = "ZO_CompassFrame",
         label = KFS_LABEL_COMPASS,
+        width = function ()
+            local rootWidth = GuiRoot:GetWidth() or 0
+            return zo_clamp(rootWidth * 0.35, 400, 800)
+        end,
+        height = function ()
+            if IsInGamepadPreferredMode() then
+                return ZO_COMPASS_FRAME_HEIGHT_GAMEPAD or 0
+            end
+            return ZO_COMPASS_FRAME_HEIGHT_KEYBOARD or 0
+        end,
+        anchorPoint = TOP,
+        anchorRelativePoint = TOP,
         preApply = function ()
             if COMPASS_FRAME and COMPASS_FRAME.ApplyStyle then
                 COMPASS_FRAME:ApplyStyle()
