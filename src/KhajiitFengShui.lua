@@ -1,5 +1,5 @@
 local ADDON_NAME = "KhajiitFengShui"
-local ADDON_VERSION = "1.0.4"
+local ADDON_VERSION = "1.0.5"
 
 --- @class KhajiitFengShui
 local KhajiitFengShui =
