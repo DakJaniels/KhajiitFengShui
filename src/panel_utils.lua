@@ -37,6 +37,13 @@ local function computeRelativeOffsets(control, point, relativePoint, left, top, 
         local guiHeight = target:GetHeight() or 0
         offsetX = (left + width) - guiWidth
         offsetY = (top + height) - guiHeight
+    elseif point == CENTER and relativePoint == CENTER then
+        local width = (controlWidth ~= nil and controlWidth ~= 0) and controlWidth or fallbackWidth or 0
+        local height = (controlHeight ~= nil and controlHeight ~= 0) and controlHeight or fallbackHeight or 0
+        local guiWidth = target:GetWidth() or 0
+        local guiHeight = target:GetHeight() or 0
+        offsetX = (left + (width * 0.5)) - (guiWidth * 0.5)
+        offsetY = (top + (height * 0.5)) - (guiHeight * 0.5)
     end
 
     return offsetX, offsetY

@@ -238,6 +238,8 @@ local definitions =
         label = KFS_LABEL_BUFF_SELF,
         width = 420,
         height = 100,
+        anchorPoint = CENTER,
+        anchorRelativePoint = CENTER,
         condition = function ()
             return GetControl("ZO_BuffDebuffTopLevelSelfContainer") ~= nil
         end,
@@ -248,6 +250,8 @@ local definitions =
         label = KFS_LABEL_BUFF_TARGET,
         width = 420,
         height = 100,
+        anchorPoint = CENTER,
+        anchorRelativePoint = CENTER,
         condition = function ()
             return GetControl("ZO_BuffDebuffTopLevelTargetContainer") ~= nil
         end,

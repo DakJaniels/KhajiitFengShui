@@ -13,6 +13,7 @@ local KhajiitFengShui =
     activePanelId = nil,
     compassHookRegistered = false,
     buffAnimationHookRegistered = false,
+    globalCooldownActive = false,
 }
 
 KhajiitFengShui.defaults =
@@ -24,6 +25,7 @@ KhajiitFengShui.defaults =
     },
     positions = {},
     buffAnimationsEnabled = false,
+    globalCooldownEnabled = false,
 }
 
 local LCA  --- @type LibCombatAlerts
@@ -200,6 +202,15 @@ end
 function KhajiitFengShui:UpdateBuffAnimationHook()
     if self.savedVars and self.savedVars.buffAnimationsEnabled then
         self:RegisterBuffAnimationHook()
+    end
+end
+
+function KhajiitFengShui:ApplyGlobalCooldownSetting()
+    local enabled = self.savedVars and self.savedVars.globalCooldownEnabled
+    local desired = enabled == true
+    if self.globalCooldownActive ~= desired then
+        ZO_ActionButtons_ToggleShowGlobalCooldown()
+        self.globalCooldownActive = desired
     end
 end
 
@@ -449,6 +460,10 @@ function KhajiitFengShui:CreateSettingsMenu()
                                            self.savedVars.grid.size = self.defaults.grid.size
                                            self:ResetPositions()
                                            self:ApplySnapSettings()
+                                           self.savedVars.buffAnimationsEnabled = self.defaults.buffAnimationsEnabled
+                                           self:UpdateBuffAnimationHook()
+                                           self.savedVars.globalCooldownEnabled = self.defaults.globalCooldownEnabled
+                                           self:ApplyGlobalCooldownSetting()
                                            self.activePanelId = nil
                                            self:RefreshAllPanels()
                                        end,
@@ -501,6 +516,19 @@ function KhajiitFengShui:CreateSettingsMenu()
                     self.savedVars.buffAnimationsEnabled = value
                     self:UpdateBuffAnimationHook()
                     ReloadUI("ingame")
+                end,
+            },
+            {
+                type = LHAS.ST_CHECKBOX,
+                label = GetString(KFS_ENABLE_GCD),
+                tooltip = GetString(KFS_ENABLE_GCD_DESC),
+                default = self.defaults.globalCooldownEnabled,
+                getFunction = function ()
+                    return self.savedVars.globalCooldownEnabled
+                end,
+                setFunction = function (value)
+                    self.savedVars.globalCooldownEnabled = value
+                    self:ApplyGlobalCooldownSetting()
                 end,
             },
             {
@@ -576,8 +604,12 @@ function KhajiitFengShui:OnAddOnLoaded(event, addonName)
     if self.savedVars.buffAnimationsEnabled == nil then
         self.savedVars.buffAnimationsEnabled = self.defaults.buffAnimationsEnabled
     end
+    if self.savedVars.globalCooldownEnabled == nil then
+        self.savedVars.globalCooldownEnabled = self.defaults.globalCooldownEnabled
+    end
 
     self:UpdateBuffAnimationHook()
+    self:ApplyGlobalCooldownSetting()
 
     self:InitializePanels()
     self:CreateSettingsMenu()
