@@ -1,5 +1,5 @@
 local ADDON_NAME = "KhajiitFengShui";
-local ADDON_VERSION = "1.1.1";
+local ADDON_VERSION = "1.1.2";
 
 ---@class KFS_SavedVars
 ---@field grid { enabled: boolean, size: number }
@@ -1596,6 +1596,28 @@ function KhajiitFengShui:OnAddOnLoaded(event, addonName)
 
     self:UpdateBuffAnimationHook();
     self:ApplyGlobalCooldownSetting();
+
+    if self.savedVars.alwaysExpandedBars then
+        -- Hook OnValueChanged to force expanded state when enabled
+        ZO_PreHook(ZO_UnitVisualizer_ShrinkExpandModule, "OnValueChanged", function(moduleself, bar, info, stat, instant)
+            -- Force expanded state and width
+            info.state = ATTRIBUTE_BAR_STATE_EXPANDED;
+            bar:SetWidth(moduleself.expandedWidth);
+            bar.bgContainer:SetWidth(moduleself.expandedWidth);
+            -- Prevent original method from running
+            return true;
+        end);
+
+        -- Force re-initialization if bars were already created before the hook
+        local module = PLAYER_ATTRIBUTE_BARS and PLAYER_ATTRIBUTE_BARS.attributeVisualizer;
+        if module then
+            for _, visualModule in pairs(module.visualModules) do
+                if visualModule.InitializeBarValues then
+                    visualModule:InitializeBarValues();
+                end;
+            end;
+        end;
+    end;
 
     if KFS_AttributeScaler then
         KFS_AttributeScaler:SetAlwaysExpanded(self.savedVars.alwaysExpandedBars);

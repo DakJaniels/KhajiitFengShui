@@ -64,6 +64,7 @@ function AttributeScaler:New()
         originalWidths = {};
         statScales = {};
         eventsRegistered = false;
+        alwaysExpandedEnabled = false;
     };
     return setmetatable(scaler, self);
 end;
@@ -186,7 +187,7 @@ function AttributeScaler:ApplyScaleToControl(control, scale)
     local origExpanded = self.originalWidths.expandedWidth or module.expandedWidth;
     local origShrunk = self.originalWidths.shrunkWidth or module.shrunkWidth;
 
-    local alwaysExpanded = KFS_AttributeScaler.alwaysExpandedEnabled or false;
+    local alwaysExpanded = self.alwaysExpandedEnabled or false;
 
     if module.barInfo and module.barInfo[statType] and module.barControls and module.barControls[statType] then
         local info = module.barInfo[statType];
@@ -348,6 +349,10 @@ end;
 ---@param enabled boolean
 function AttributeScaler:SetAlwaysExpanded(enabled)
     self.alwaysExpandedEnabled = enabled == true;
+
+    -- Note: The actual expansion logic is handled by the PreHook in KhajiitFengShui.lua
+    -- This method is kept for compatibility and potential future enhancements
+
     self:ReapplyAll();
 end;
 

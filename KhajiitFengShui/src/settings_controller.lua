@@ -131,172 +131,177 @@ function SettingsController:CreateSettingsMenu()
                                                   end;
                                               });
 
-    local controls =
+    local controls = {};
+    local controlCount = 1;
+
+    controls[controlCount] =
     {
-        {
-            type = self.addon.LHAS.ST_LABEL;
-            label = GetString(KFS_SETTINGS_DESC);
-        };
+        type = self.addon.LHAS.ST_LABEL;
+        label = GetString(KFS_SETTINGS_DESC);
     };
+    controlCount = controlCount + 1;
 
     if ZO_IsConsoleUI() then
-        table.insert(controls,
-                     {
-                         type = self.addon.LHAS.ST_BUTTON;
-                         label = function ()
-                             local currentMode = GetProfileModeLabel(self.addon:GetProfileMode());
-                             return string.format("%s: %s", GetString(KFS_PROFILE_MODE), currentMode);
-                         end;
-                         tooltip = GetString(KFS_PROFILE_MODE_DESC_RELOAD);
-                         buttonText = GetString(KFS_PROFILE_MODE_TOGGLE);
-                         clickHandler = function ()
-                             local nextMode = self.addon:GetProfileMode() == "account" and "character" or "account";
-                             self.addon:SetProfileMode(nextMode);
-                             ReloadUI("ingame");
-                         end;
-                     });
-    else
-        local profileModeItems =
+        controls[controlCount] =
         {
-            {
-                name = GetString(KFS_PROFILE_ACCOUNT);
-                data = "account";
-            };
-            {
-                name = GetString(KFS_PROFILE_CHARACTER);
-                data = "character";
-            };
+            type = self.addon.LHAS.ST_BUTTON;
+            label = function ()
+                local currentMode = GetProfileModeLabel(self.addon:GetProfileMode());
+                return string.format("%s: %s", GetString(KFS_PROFILE_MODE), currentMode);
+            end;
+            tooltip = GetString(KFS_PROFILE_MODE_DESC_RELOAD);
+            buttonText = GetString(KFS_PROFILE_MODE_TOGGLE);
+            clickHandler = function ()
+                local nextMode = self.addon:GetProfileMode() == "account" and "character" or "account";
+                self.addon:SetProfileMode(nextMode);
+                ReloadUI("ingame");
+            end;
         };
-        table.insert(controls,
-                     {
-                         type = self.addon.LHAS.ST_DROPDOWN;
-                         label = GetString(KFS_PROFILE_MODE);
-                         tooltip = GetString(KFS_PROFILE_MODE_DESC_RELOAD);
-                         items = function ()
-                             return profileModeItems;
-                         end;
-                         getFunction = function ()
-                             local mode = self.addon:GetProfileMode();
-                             for _, item in ipairs(profileModeItems) do
-                                 if item.data == mode then
-                                     return item.name;
-                                 end;
-                             end;
-                             return profileModeItems[1].name;
-                         end;
-                         setFunction = function (_, _, itemData)
-                             self.addon:SetProfileMode(itemData or "account");
-                             ReloadUI("ingame");
-                         end;
-                     });
+        controlCount = controlCount + 1;
+    else
+        controls[controlCount] =
+        {
+            type = self.addon.LHAS.ST_DROPDOWN;
+            label = GetString(KFS_PROFILE_MODE);
+            tooltip = GetString(KFS_PROFILE_MODE_DESC_RELOAD);
+            default = GetString(KFS_PROFILE_ACCOUNT);
+            items =
+            {
+                {
+                    name = GetString(KFS_PROFILE_ACCOUNT);
+                    data = "account";
+                };
+                {
+                    name = GetString(KFS_PROFILE_CHARACTER);
+                    data = "character";
+                };
+            };
+            getFunction = function ()
+                local mode = self.addon:GetProfileMode();
+                if mode == "account" then
+                    return GetString(KFS_PROFILE_ACCOUNT);
+                else
+                    return GetString(KFS_PROFILE_CHARACTER);
+                end;
+            end;
+            setFunction = function (_, _, itemData)
+                self.addon:SetProfileMode(itemData or "account");
+                ReloadUI("ingame");
+            end;
+        };
+        controlCount = controlCount + 1;
     end;
 
-    table.insert(controls,
-                 {
-                     type = self.addon.LHAS.ST_CHECKBOX;
-                     label = GetString(KFS_ENABLE_SNAP);
-                     tooltip = GetString(KFS_ENABLE_SNAP_DESC);
-                     default = self.addon.defaults.grid.enabled;
-                     getFunction = function ()
-                         return self.addon.savedVars.grid.enabled;
-                     end;
-                     setFunction = function (value)
-                         self.addon.savedVars.grid.enabled = value;
-                         self.addon:ApplySnapSettings();
-                     end;
-                 });
+    controls[controlCount] =
+    {
+        type = self.addon.LHAS.ST_CHECKBOX;
+        label = GetString(KFS_ENABLE_SNAP);
+        tooltip = GetString(KFS_ENABLE_SNAP_DESC);
+        default = self.addon.defaults.grid.enabled;
+        getFunction = function ()
+            return self.addon.savedVars.grid.enabled;
+        end;
+        setFunction = function (value)
+            self.addon.savedVars.grid.enabled = value;
+            self.addon:ApplySnapSettings();
+        end;
+    };
+    controlCount = controlCount + 1;
 
-    table.insert(controls,
-                 {
-                     type = self.addon.LHAS.ST_SLIDER;
-                     label = GetString(KFS_SNAP_SIZE);
-                     tooltip = GetString(KFS_SNAP_SIZE_DESC);
-                     min = 2;
-                     max = 128;
-                     step = 1;
-                     default = self.addon.defaults.grid.size;
-                     getFunction = function ()
-                         return self.addon.savedVars.grid.size;
-                     end;
-                     setFunction = function (value)
-                         self.addon.savedVars.grid.size = value;
-                         self.addon:ApplySnapSettings();
-                     end;
-                 });
+    controls[controlCount] =
+    {
+        type = self.addon.LHAS.ST_SLIDER;
+        label = GetString(KFS_SNAP_SIZE);
+        tooltip = GetString(KFS_SNAP_SIZE_DESC);
+        min = 2;
+        max = 128;
+        step = 1;
+        default = self.addon.defaults.grid.size;
+        getFunction = function ()
+            return self.addon.savedVars.grid.size;
+        end;
+        setFunction = function (value)
+            self.addon.savedVars.grid.size = value;
+            self.addon:ApplySnapSettings();
+        end;
+    };
+    controlCount = controlCount + 1;
 
-    table.insert(controls,
-                 {
-                     type = self.addon.LHAS.ST_CHECKBOX;
-                     label = GetString(KFS_ENABLE_BUFF_ANIMATIONS);
-                     tooltip = GetString(KFS_ENABLE_BUFF_ANIMATIONS_DESC_RELOAD);
-                     default = self.addon.defaults.buffAnimationsEnabled;
-                     getFunction = function ()
-                         return self.addon.savedVars.buffAnimationsEnabled;
-                     end;
-                     setFunction = function (value)
-                         self.addon.savedVars.buffAnimationsEnabled = value;
-                         self.addon:UpdateBuffAnimationHook();
-                         ReloadUI("ingame");
-                     end;
-                 });
+    controls[controlCount] =
+    {
+        type = self.addon.LHAS.ST_CHECKBOX;
+        label = GetString(KFS_ENABLE_BUFF_ANIMATIONS);
+        tooltip = GetString(KFS_ENABLE_BUFF_ANIMATIONS_DESC_RELOAD);
+        default = self.addon.defaults.buffAnimationsEnabled;
+        getFunction = function ()
+            return self.addon.savedVars.buffAnimationsEnabled;
+        end;
+        setFunction = function (value)
+            self.addon.savedVars.buffAnimationsEnabled = value;
+            self.addon:UpdateBuffAnimationHook();
+            ReloadUI("ingame");
+        end;
+    };
+    controlCount = controlCount + 1;
 
-    table.insert(controls,
-                 {
-                     type = self.addon.LHAS.ST_CHECKBOX;
-                     label = GetString(KFS_ENABLE_GCD);
-                     tooltip = GetString(KFS_ENABLE_GCD_DESC);
-                     default = self.addon.defaults.globalCooldownEnabled;
-                     getFunction = function ()
-                         return self.addon.savedVars.globalCooldownEnabled;
-                     end;
-                     setFunction = function (value)
-                         self.addon.savedVars.globalCooldownEnabled = value;
-                         self.addon:ApplyGlobalCooldownSetting();
-                     end;
-                 });
+    controls[controlCount] =
+    {
+        type = self.addon.LHAS.ST_CHECKBOX;
+        label = GetString(KFS_ENABLE_GCD);
+        tooltip = GetString(KFS_ENABLE_GCD_DESC);
+        default = self.addon.defaults.globalCooldownEnabled;
+        getFunction = function ()
+            return self.addon.savedVars.globalCooldownEnabled;
+        end;
+        setFunction = function (value)
+            self.addon.savedVars.globalCooldownEnabled = value;
+            self.addon:ApplyGlobalCooldownSetting();
+        end;
+    };
+    controlCount = controlCount + 1;
 
-    table.insert(controls,
-                 {
-                     type = self.addon.LHAS.ST_CHECKBOX;
-                     label = GetString(KFS_PYRAMID_LAYOUT);
-                     tooltip = GetString(KFS_PYRAMID_LAYOUT_DESC);
-                     default = self.addon.defaults.pyramidLayoutEnabled;
-                     getFunction = function ()
-                         return self.addon.savedVars.pyramidLayoutEnabled;
-                     end;
-                     setFunction = function (value)
-                         self.addon.savedVars.pyramidLayoutEnabled = value;
-                         self.addon:ApplyAllPositions();
-                     end;
-                 });
+    controls[controlCount] =
+    {
+        type = self.addon.LHAS.ST_CHECKBOX;
+        label = GetString(KFS_PYRAMID_LAYOUT);
+        tooltip = GetString(KFS_PYRAMID_LAYOUT_DESC);
+        default = self.addon.defaults.pyramidLayoutEnabled;
+        getFunction = function ()
+            return self.addon.savedVars.pyramidLayoutEnabled;
+        end;
+        setFunction = function (value)
+            self.addon.savedVars.pyramidLayoutEnabled = value;
+            self.addon:ApplyAllPositions();
+        end;
+    };
+    controlCount = controlCount + 1;
 
-    table.insert(controls,
-                 {
-                     type = self.addon.LHAS.ST_CHECKBOX;
-                     label = GetString(KFS_ALWAYS_EXPANDED_BARS);
-                     tooltip = GetString(KFS_ALWAYS_EXPANDED_BARS_DESC);
-                     default = self.addon.defaults.alwaysExpandedBars;
-                     getFunction = function ()
-                         return self.addon.savedVars.alwaysExpandedBars;
-                     end;
-                     setFunction = function (value)
-                         self.addon.savedVars.alwaysExpandedBars = value;
-                         if KFS_AttributeScaler then
-                             KFS_AttributeScaler:SetAlwaysExpanded(value);
-                         end;
-                     end;
-                 });
+    controls[controlCount] =
+    {
+        type = self.addon.LHAS.ST_CHECKBOX;
+        label = GetString(KFS_ALWAYS_EXPANDED_BARS);
+        tooltip = GetString(KFS_ALWAYS_EXPANDED_BARS_DESC_RELOAD);
+        default = self.addon.defaults.alwaysExpandedBars;
+        getFunction = function ()
+            return self.addon.savedVars.alwaysExpandedBars;
+        end;
+        setFunction = function (value)
+            self.addon.savedVars.alwaysExpandedBars = value;
+            ReloadUI("ingame"); -- Requires UI reload to apply the hook
+        end;
+    };
+    controlCount = controlCount + 1;
 
-    table.insert(controls,
-                 {
-                     type = self.addon.LHAS.ST_BUTTON;
-                     label = GetString(KFS_RESET_ALL_DESC);
-                     tooltip = GetString(KFS_RESET_ALL_DESC);
-                     buttonText = GetString(KFS_RESET_ALL);
-                     clickHandler = function ()
-                         self.addon:ResetPositions();
-                     end;
-                 });
+    controls[controlCount] =
+    {
+        type = self.addon.LHAS.ST_BUTTON;
+        label = GetString(KFS_RESET_ALL_DESC);
+        tooltip = GetString(KFS_RESET_ALL_DESC);
+        buttonText = GetString(KFS_RESET_ALL);
+        clickHandler = function ()
+            self.addon:ResetPositions();
+        end;
+    };
     settings:AddSettings(controls);
 
     settings:AddSetting(
