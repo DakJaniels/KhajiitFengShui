@@ -34,6 +34,7 @@ local strings =
     KFS_SECTION_CONTROLS = "Individual Controls";
     KFS_MOVE_BUTTON = "Move";
     KFS_MOVE_BUTTON_DESC = "Currently positioned at: ";
+    KFS_MOVE_BUTTON_PYRAMID_DESC = "Use /kfsedit to move pyramid bars.";
     KFS_EDIT_MODE_ENABLED = "Khajiit Feng Shui edit mode enabled.";
     KFS_EDIT_MODE_DISABLED = "Khajiit Feng Shui edit mode disabled.";
 

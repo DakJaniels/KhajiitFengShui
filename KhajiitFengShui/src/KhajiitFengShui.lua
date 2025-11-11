@@ -1,5 +1,5 @@
 local ADDON_NAME = "KhajiitFengShui";
-local ADDON_VERSION = "1.1.2";
+local ADDON_VERSION = "1.1.3";
 
 ---@class KFS_SavedVars
 ---@field grid { enabled: boolean, size: number }
@@ -692,7 +692,9 @@ end;
 function KhajiitFengShui:OnMoveStart(panel, handler)
     local updateName = string.format("%s_MoveUpdate_%s", self.name, panel.definition.id);
 
-    if self.savedVars.pyramidLayoutEnabled and (panel.definition.id == "playerHealth" or panel.definition.id == "playerMagicka" or panel.definition.id == "playerStamina") then
+    -- Only apply pyramid layout updates when in edit mode and actively dragging
+    -- When using settings move button, treat as individual bar movement
+    if self.editModeActive and self.savedVars.pyramidLayoutEnabled and (panel.definition.id == "playerHealth" or panel.definition.id == "playerMagicka" or panel.definition.id == "playerStamina") then
         local healthPanel = self.panelLookup["playerHealth"];
         local magickaPanel = self.panelLookup["playerMagicka"];
         local staminaPanel = self.panelLookup["playerStamina"];
@@ -778,7 +780,9 @@ function KhajiitFengShui:OnMoveStop(panel, handler, newPos, isExplicitStop)
     local updateName = string.format("%s_MoveUpdate_%s", self.name, panel.definition.id);
     em:UnregisterForUpdate(updateName);
 
-    if self.savedVars.pyramidLayoutEnabled and (panel.definition.id == "playerHealth" or panel.definition.id == "playerMagicka" or panel.definition.id == "playerStamina") then
+    -- Only apply pyramid layout updates when in edit mode
+    -- When using settings move button, treat as individual bar movement
+    if self.editModeActive and self.savedVars.pyramidLayoutEnabled and (panel.definition.id == "playerHealth" or panel.definition.id == "playerMagicka" or panel.definition.id == "playerStamina") then
         local left, top = PanelUtils.getAnchorPosition(handler, true);
         self:UpdatePyramidLayoutFromPosition(panel.definition.id, left, top);
     else
@@ -1599,7 +1603,7 @@ function KhajiitFengShui:OnAddOnLoaded(event, addonName)
 
     if self.savedVars.alwaysExpandedBars then
         -- Hook OnValueChanged to force expanded state when enabled
-        ZO_PreHook(ZO_UnitVisualizer_ShrinkExpandModule, "OnValueChanged", function(moduleself, bar, info, stat, instant)
+        ZO_PreHook(ZO_UnitVisualizer_ShrinkExpandModule, "OnValueChanged", function (moduleself, bar, info, stat, instant)
             -- Force expanded state and width
             info.state = ATTRIBUTE_BAR_STATE_EXPANDED;
             bar:SetWidth(moduleself.expandedWidth);

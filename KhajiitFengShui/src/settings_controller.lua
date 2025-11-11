@@ -88,11 +88,21 @@ function SettingsController:AddPanelSetting(panel)
                 type = self.addon.LHAS.ST_BUTTON;
                 label = GetString(KFS_MOVE_BUTTON);
                 tooltip = function ()
-                    return string.format("%s%s", GetString(KFS_MOVE_BUTTON_DESC), BuildPositionText(panel));
+                    local isPyramidBar = panel.definition.id == "playerHealth" or panel.definition.id == "playerMagicka" or panel.definition.id == "playerStamina";
+                    if isPyramidBar and self.addon.savedVars.pyramidLayoutEnabled then
+                        return GetString(KFS_MOVE_BUTTON_PYRAMID_DESC);
+                    else
+                        return string.format("%s%s", GetString(KFS_MOVE_BUTTON_DESC), BuildPositionText(panel));
+                    end;
                 end;
                 buttonText = GetString(KFS_MOVE_BUTTON);
                 disable = function ()
-                    return panel.handler == nil;
+                    if panel.handler == nil then
+                        return true;
+                    end;
+                    -- Disable move button for pyramid bars when pyramid layout is enabled
+                    local isPyramidBar = panel.definition.id == "playerHealth" or panel.definition.id == "playerMagicka" or panel.definition.id == "playerStamina";
+                    return isPyramidBar and self.addon.savedVars.pyramidLayoutEnabled;
                 end;
                 clickHandler = function ()
                     if self.addon.activePanelId == panel.definition.id then
