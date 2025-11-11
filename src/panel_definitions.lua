@@ -1,5 +1,20 @@
 local AttributeScaler = KFS_AttributeScaler;
 
+---@class KhajiitFengShuiPanelDefinition
+---@field id string Unique identifier for the panel
+---@field controlName string Name of the game control to track
+---@field label integer String constant for localized label
+---@field width number|function|nil Width in pixels or function that returns width
+---@field height number|function|nil Height in pixels or function that returns height
+---@field anchorPoint integer|nil Anchor point constant (TOPLEFT, CENTER, etc)
+---@field anchorRelativePoint integer|nil Relative anchor point on GuiRoot
+---@field anchorApply fun(panel: KhajiitFengShuiPanel, left: number, top: number)|nil Custom anchor application function
+---@field scaleApply fun(panel: KhajiitFengShuiPanel, scale: number)|nil Custom scale application function
+---@field preApply fun(control: userdata, hasCustomPosition: boolean)|nil Called before applying position
+---@field postApply fun(control: userdata, hasCustomPosition: boolean)|nil Called after applying position
+---@field condition fun(): boolean|nil Function to check if panel should be created
+
+---@type KhajiitFengShuiPanelDefinition[]
 local definitions =
 {
     { id = "infamy";       controlName = "ZO_HUDInfamyMeter";                  label = KFS_LABEL_INFAMY                                 };
@@ -22,8 +37,20 @@ local definitions =
             end;
         end;
     };
-    { id = "playerInteract"; controlName = "ZO_PlayerToPlayerAreaPromptContainer"; label = KFS_LABEL_PLAYER_INTERACT; height = 30 };
-    { id = "synergy";        controlName = "ZO_SynergyTopLevelContainer";          label = KFS_LABEL_SYNERGY                      };
+    { id = "playerInteract"; controlName = "ZO_PlayerToPlayerAreaPromptContainer"; label = KFS_LABEL_PLAYER_INTERACT; width = 870; height = 30 };
+    {
+        id = "synergy";
+        controlName = "ZO_SynergyTopLevelContainer";
+        label = KFS_LABEL_SYNERGY;
+        width = function (control)
+            return control:GetWidth() or 200;
+        end;
+        height = function (control)
+            return control:GetHeight() or 50;
+        end;
+        anchorPoint = BOTTOM;
+        anchorRelativePoint = BOTTOM;
+    };
     {
         id = "compass";
         controlName = "ZO_CompassFrame";
@@ -155,7 +182,7 @@ local definitions =
         width = 230;
         height = 100;
     };
-    { id = "reticle"; controlName = "ZO_ReticleContainerInteract"; label = KFS_LABEL_RETICLE };
+    { id = "reticle";        controlName = "ZO_ReticleContainerInteract";          label = KFS_LABEL_RETICLE                                   };
     {
         id = "targetFrame";
         controlName = "ZO_TargetUnitFramereticleover";
@@ -347,7 +374,9 @@ local definitions =
         id = "buffSelf";
         controlName = "ZO_BuffDebuffTopLevelSelfContainer";
         label = KFS_LABEL_BUFF_SELF;
-        width = 420;
+        width = function (control)
+            return control:GetWidth() or 420;
+        end;
         height = 100;
         anchorPoint = CENTER;
         anchorRelativePoint = CENTER;
@@ -359,7 +388,9 @@ local definitions =
         id = "buffTarget";
         controlName = "ZO_BuffDebuffTopLevelTargetContainer";
         label = KFS_LABEL_BUFF_TARGET;
-        width = 420;
+        width = function (control)
+            return control:GetWidth() or 420;
+        end;
         height = 100;
         anchorPoint = CENTER;
         anchorRelativePoint = CENTER;
@@ -386,18 +417,28 @@ local definitions =
     };
 };
 
+---@class KFS_PanelDefinitions
+---@field list KhajiitFengShuiPanelDefinition[]
 local PanelDefinitions = {};
 
 PanelDefinitions.list = definitions;
 
+---Returns all panel definitions
+---@return KhajiitFengShuiPanelDefinition[]
 function PanelDefinitions.getAll()
     return definitions;
 end;
 
+---Gets localized label for a definition
+---@param definition KhajiitFengShuiPanelDefinition
+---@return string
 function PanelDefinitions.getLabel(definition)
     return GetString(definition.label);
 end;
 
+---Resolves control from definition
+---@param definition KhajiitFengShuiPanelDefinition
+---@return userdata?
 function PanelDefinitions.resolveControl(definition)
     if definition.condition and not definition.condition() then
         return nil;

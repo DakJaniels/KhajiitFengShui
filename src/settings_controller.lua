@@ -1,3 +1,6 @@
+---@class KFS_SettingsController
+---@field addon KhajiitFengShui Reference to main addon instance
+---@field settingsPanel table|nil LibHarvensAddonSettings panel instance
 local SettingsController = {};
 SettingsController.__index = SettingsController;
 
@@ -9,6 +12,9 @@ local SCALE_MAX_PERCENT = 150;
 local SCALE_STEP_PERCENT = 5;
 local DEFAULT_SCALE = 1;
 
+---Creates new SettingsController
+---@param addon KhajiitFengShui
+---@return KFS_SettingsController
 function SettingsController:New(addon)
     local controller =
     {
@@ -19,6 +25,9 @@ function SettingsController:New(addon)
     return setmetatable(controller, self);
 end;
 
+---Gets localized label for profile mode
+---@param mode string
+---@return string
 local function GetProfileModeLabel(mode)
     if mode == "character" then
         return GetString(KFS_PROFILE_CHARACTER);
@@ -26,8 +35,9 @@ local function GetProfileModeLabel(mode)
     return GetString(KFS_PROFILE_ACCOUNT);
 end;
 
---- @param panel KhajiitFengShuiPanel
---- @return string
+---Builds position text for panel
+---@param panel KhajiitFengShuiPanel
+---@return string
 local function BuildPositionText(panel)
     if not (panel and panel.handler) then
         return "N/A";
@@ -36,6 +46,8 @@ local function BuildPositionText(panel)
     return string.format("%d, %d", left, top);
 end;
 
+---Adds settings for a panel
+---@param panel KhajiitFengShuiPanel
 function SettingsController:AddPanelSetting(panel)
     if not self.settingsPanel then
         return;
@@ -74,9 +86,9 @@ function SettingsController:AddPanelSetting(panel)
         self.settingsPanel:AddSetting(
             {
                 type = self.addon.LHAS.ST_BUTTON;
-                label = PanelDefinitions.getLabel(panel.definition);
+                label = GetString(KFS_MOVE_BUTTON);
                 tooltip = function ()
-                    return string.format("%s\n%s", GetString(KFS_MOVE_BUTTON_DESC), BuildPositionText(panel));
+                    return string.format("%s%s", GetString(KFS_MOVE_BUTTON_DESC), BuildPositionText(panel));
                 end;
                 buttonText = GetString(KFS_MOVE_BUTTON);
                 disable = function ()
@@ -94,29 +106,30 @@ function SettingsController:AddPanelSetting(panel)
     end;
 end;
 
+---Creates settings menu
 function SettingsController:CreateSettingsMenu()
     if not self.addon.LHAS then
         return;
     end;
 
     local settings = self.addon.LHAS:AddAddon(GetString(KFS_SETTINGS),
-                                   {
-                                       allowDefaults = true;
-                                       defaultsFunction = function ()
-                                           self.addon:SetProfileMode(self.addon.defaults.profileMode, true);
-                                           self.addon.savedVars.grid.enabled = self.addon.defaults.grid.enabled;
-                                           self.addon.savedVars.grid.size = self.addon.defaults.grid.size;
-                                           self.addon:ResetPositions();
-                                           self.addon:ApplySnapSettings();
-                                           self.addon.savedVars.buffAnimationsEnabled = self.addon.defaults.buffAnimationsEnabled;
-                                           self.addon:UpdateBuffAnimationHook();
-                                           self.addon.savedVars.globalCooldownEnabled = self.addon.defaults.globalCooldownEnabled;
-                                           self.addon:ApplyGlobalCooldownSetting();
-                                           self.addon.activePanelId = nil;
-                                           self.addon:RefreshAllPanels();
-                                           self.addon:RefreshGridOverlay();
-                                       end;
-                                   });
+                                              {
+                                                  allowDefaults = true;
+                                                  defaultsFunction = function ()
+                                                      self.addon:SetProfileMode(self.addon.defaults.profileMode, true);
+                                                      self.addon.savedVars.grid.enabled = self.addon.defaults.grid.enabled;
+                                                      self.addon.savedVars.grid.size = self.addon.defaults.grid.size;
+                                                      self.addon:ResetPositions();
+                                                      self.addon:ApplySnapSettings();
+                                                      self.addon.savedVars.buffAnimationsEnabled = self.addon.defaults.buffAnimationsEnabled;
+                                                      self.addon:UpdateBuffAnimationHook();
+                                                      self.addon.savedVars.globalCooldownEnabled = self.addon.defaults.globalCooldownEnabled;
+                                                      self.addon:ApplyGlobalCooldownSetting();
+                                                      self.addon.activePanelId = nil;
+                                                      self.addon:RefreshAllPanels();
+                                                      self.addon:RefreshGridOverlay();
+                                                  end;
+                                              });
 
     local controls =
     {
@@ -130,14 +143,16 @@ function SettingsController:CreateSettingsMenu()
         table.insert(controls,
                      {
                          type = self.addon.LHAS.ST_BUTTON;
-                         label = GetString(KFS_PROFILE_MODE);
-                         tooltip = GetString(KFS_PROFILE_MODE_DESC);
-                         buttonText = function ()
-                             return GetProfileModeLabel(self.addon:GetProfileMode());
+                         label = function ()
+                             local currentMode = GetProfileModeLabel(self.addon:GetProfileMode());
+                             return string.format("%s: %s", GetString(KFS_PROFILE_MODE), currentMode);
                          end;
+                         tooltip = GetString(KFS_PROFILE_MODE_DESC_RELOAD);
+                         buttonText = GetString(KFS_PROFILE_MODE_TOGGLE);
                          clickHandler = function ()
                              local nextMode = self.addon:GetProfileMode() == "account" and "character" or "account";
                              self.addon:SetProfileMode(nextMode);
+                             ReloadUI("ingame");
                          end;
                      });
     else
@@ -156,7 +171,7 @@ function SettingsController:CreateSettingsMenu()
                      {
                          type = self.addon.LHAS.ST_DROPDOWN;
                          label = GetString(KFS_PROFILE_MODE);
-                         tooltip = GetString(KFS_PROFILE_MODE_DESC);
+                         tooltip = GetString(KFS_PROFILE_MODE_DESC_RELOAD);
                          items = function ()
                              return profileModeItems;
                          end;
@@ -171,6 +186,7 @@ function SettingsController:CreateSettingsMenu()
                          end;
                          setFunction = function (_, _, itemData)
                              self.addon:SetProfileMode(itemData or "account");
+                             ReloadUI("ingame");
                          end;
                      });
     end;
@@ -212,7 +228,7 @@ function SettingsController:CreateSettingsMenu()
                  {
                      type = self.addon.LHAS.ST_CHECKBOX;
                      label = GetString(KFS_ENABLE_BUFF_ANIMATIONS);
-                     tooltip = GetString(KFS_ENABLE_BUFF_ANIMATIONS_DESC);
+                     tooltip = GetString(KFS_ENABLE_BUFF_ANIMATIONS_DESC_RELOAD);
                      default = self.addon.defaults.buffAnimationsEnabled;
                      getFunction = function ()
                          return self.addon.savedVars.buffAnimationsEnabled;
@@ -296,4 +312,3 @@ function SettingsController:CreateSettingsMenu()
 end;
 
 KFS_SettingsController = SettingsController;
-

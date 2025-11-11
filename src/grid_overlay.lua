@@ -1,3 +1,10 @@
+---@class KFS_GridOverlay
+---@field control userdata|nil Top-level overlay window control
+---@field verticalLinePool table|nil ZO_ObjectPool for vertical lines
+---@field horizontalLinePool table|nil ZO_ObjectPool for horizontal lines
+---@field activeVerticalLines table<any, any> Map of active vertical line keys
+---@field activeHorizontalLines table<any, any> Map of active horizontal line keys
+---@field size number Current grid size in pixels
 local GridOverlay = {};
 GridOverlay.__index = GridOverlay;
 
@@ -11,6 +18,9 @@ local GRID_COLOR =
     a = 0.35;
 };
 
+---Creates line factory function
+---@param parentControl userdata
+---@return function
 local function CreateLineFactory(parentControl)
     return function ()
         local line = wm:CreateControl(nil, parentControl, CT_LINE);
@@ -23,11 +33,15 @@ local function CreateLineFactory(parentControl)
     end;
 end;
 
+---Resets line to hidden state
+---@param line userdata
 local function ResetLine(line)
     line:SetHidden(true);
     line:ClearAnchors();
 end;
 
+---Creates new GridOverlay
+---@return KFS_GridOverlay
 function GridOverlay:New()
     local overlay =
     {
@@ -42,6 +56,7 @@ function GridOverlay:New()
     return setmetatable(overlay, self);
 end;
 
+---Ensures control is created
 function GridOverlay:EnsureControl()
     if self.control then
         return;
@@ -63,7 +78,8 @@ function GridOverlay:EnsureControl()
     self.horizontalLinePool = ZO_ObjectPool:New(CreateLineFactory(control), ResetLine);
 end;
 
-
+---Updates grid lines for given size
+---@param size number
 function GridOverlay:UpdateLines(size)
     if not self.control or not self.verticalLinePool or not self.horizontalLinePool then
         return;
@@ -107,24 +123,28 @@ function GridOverlay:UpdateLines(size)
     end;
 end;
 
+---Hides grid overlay
 function GridOverlay:Hide()
     if not self.control then
         return;
     end;
 
     self.control:SetHidden(true);
-    
+
     if self.verticalLinePool then
         self.verticalLinePool:ReleaseAllObjects();
         ZO_ClearTable(self.activeVerticalLines);
     end;
-    
+
     if self.horizontalLinePool then
         self.horizontalLinePool:ReleaseAllObjects();
         ZO_ClearTable(self.activeHorizontalLines);
     end;
 end;
 
+---Refreshes grid visibility and size
+---@param visible boolean
+---@param size number?
 function GridOverlay:Refresh(visible, size)
     self.size = size or self.size;
     if not visible or not size or size <= 0 then

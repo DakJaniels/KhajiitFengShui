@@ -1,7 +1,20 @@
+---@class KFS_AttributeScaler
+---@field entries table<userdata, KFS_AttributeScalerEntry> Map of controls to scale entries
+---@field shrinkExpandModule { barInfo: table, barControls: table, normalWidth: number, expandedWidth: number, shrunkWidth: number, OnValueChanged: function }|nil Shrink/expand visual module reference
+---@field originalWidths { normalWidth: number?, expandedWidth: number?, shrunkWidth: number? } Original bar widths before scaling
+---@field statScales table<integer, number> Current scale per stat type
+---@field eventsRegistered boolean Whether events have been registered
+---@field alwaysExpandedEnabled boolean|nil Whether bars should always be expanded
 local AttributeScaler = {};
 AttributeScaler.__index = AttributeScaler;
 
 local EVENT_NAMESPACE = "KFS_AttributeScaler";
+
+---@class KFS_AttributeScalerEntry
+---@field control userdata The attribute bar control
+---@field overlay userdata|nil Overlay control reference
+---@field scale number Current scale factor
+---@field panel KhajiitFengShuiPanel|nil Panel reference
 
 local POWER_TYPE_TO_CONTROL = {};
 if COMBAT_MECHANIC_FLAGS_HEALTH then
@@ -41,6 +54,8 @@ local PRIMARY_STATS =
     { statType = STAT_STAMINA_MAX; attributeType = ATTRIBUTE_STAMINA; powerType = COMBAT_MECHANIC_FLAGS_STAMINA };
 };
 
+---Creates new AttributeScaler instance
+---@return KFS_AttributeScaler
 function AttributeScaler:New()
     local scaler =
     {
@@ -53,6 +68,8 @@ function AttributeScaler:New()
     return setmetatable(scaler, self);
 end;
 
+---Finds the attribute bar shrink/expand module
+---@return table?
 local function findShrinkExpandModule()
     if not PLAYER_ATTRIBUTE_BARS or not PLAYER_ATTRIBUTE_BARS.attributeVisualizer then
         return nil;
@@ -70,6 +87,8 @@ local function findShrinkExpandModule()
     return nil;
 end;
 
+---Captures original bar widths from the module
+---@return boolean success
 function AttributeScaler:CaptureOriginalWidths()
     local module = findShrinkExpandModule();
     if not module then
@@ -86,6 +105,9 @@ function AttributeScaler:CaptureOriginalWidths()
     return true;
 end;
 
+---Gets stat type for a control
+---@param control userdata
+---@return integer?
 local function getStatTypeForControl(control)
     for _, stat in ipairs(PRIMARY_STATS) do
         local expectedControl = STAT_TO_CONTROL[stat.statType];
@@ -96,6 +118,9 @@ local function getStatTypeForControl(control)
     return nil;
 end;
 
+---Gets power type for a control
+---@param control userdata
+---@return integer?
 local function getPowerTypeForControl(control)
     for powerType, expectedControl in pairs(POWER_TYPE_TO_CONTROL) do
         if expectedControl == control then
@@ -105,11 +130,17 @@ local function getPowerTypeForControl(control)
     return nil;
 end;
 
+---Checks if control uses shrink/expand module
+---@param control userdata
+---@return boolean
 local function usesShrinkExpandModule(control)
     local statType = getStatTypeForControl(control);
     return statType ~= nil;
 end;
 
+---Applies scale to a control with shrink/expand support
+---@param control userdata?
+---@param scale number
 function AttributeScaler:ApplyScaleToControl(control, scale)
     if not control then
         return;
@@ -154,13 +185,13 @@ function AttributeScaler:ApplyScaleToControl(control, scale)
     local origNormal = self.originalWidths.normalWidth or module.normalWidth;
     local origExpanded = self.originalWidths.expandedWidth or module.expandedWidth;
     local origShrunk = self.originalWidths.shrunkWidth or module.shrunkWidth;
-    
+
     local alwaysExpanded = KFS_AttributeScaler.alwaysExpandedEnabled or false;
-    
+
     if module.barInfo and module.barInfo[statType] and module.barControls and module.barControls[statType] then
         local info = module.barInfo[statType];
         local barControl = module.barControls[statType];
-        
+
         if alwaysExpanded then
             module.normalWidth = zo_round(origExpanded * scale);
             module.expandedWidth = zo_round(origExpanded * scale);
@@ -186,6 +217,7 @@ function AttributeScaler:ApplyScaleToControl(control, scale)
     end;
 end;
 
+---Reapplies all registered scales
 function AttributeScaler:ReapplyAll()
     for control, entry in pairs(self.entries) do
         if entry and entry.scale then
@@ -208,6 +240,12 @@ function AttributeScaler:ReapplyAll()
     end;
 end;
 
+---Handles attribute visual changes
+---@param unitTag string
+---@param _ any
+---@param statType integer
+---@param _ any
+---@param powerType integer
 function AttributeScaler:OnAttributeVisualChange(unitTag, _, statType, _, powerType)
     if unitTag ~= "player" then
         return;
@@ -222,6 +260,7 @@ function AttributeScaler:OnAttributeVisualChange(unitTag, _, statType, _, powerT
     end;
 end;
 
+---Ensures event handlers are registered
 function AttributeScaler:EnsureEvents()
     if self.eventsRegistered then
         return;
@@ -305,11 +344,16 @@ function AttributeScaler:EnsureEvents()
     self.eventsRegistered = true;
 end;
 
+---Sets always expanded mode for attribute bars
+---@param enabled boolean
 function AttributeScaler:SetAlwaysExpanded(enabled)
     self.alwaysExpandedEnabled = enabled == true;
     self:ReapplyAll();
 end;
 
+---Applies scale to a panel
+---@param panel KhajiitFengShuiPanel?
+---@param scale number?
 function AttributeScaler:Apply(panel, scale)
     if not panel or not panel.control or not scale then
         return;
@@ -327,7 +371,7 @@ function AttributeScaler:Apply(panel, scale)
     };
 
     self:ApplyScaleToControl(control, scale);
-    
+
     if panel.overlay and KFS_PanelUtils then
         KFS_PanelUtils.syncOverlaySize(panel);
     end;

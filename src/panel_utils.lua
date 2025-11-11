@@ -1,5 +1,11 @@
+---@alias KFS_Position { left: number?, top: number?, right: number?, bottom: number?, center: number?, mid: number? }
+
+---@class KFS_PanelUtils
 local PanelUtils = {};
 
+---Creates a shallow copy of a position table
+---@param position KFS_Position?
+---@return KFS_Position?
 function PanelUtils.copyPosition(position)
     if not position then
         return nil;
@@ -13,6 +19,10 @@ function PanelUtils.copyPosition(position)
     return clone;
 end;
 
+---Rounds an offset to the nearest grid snap point
+---@param offset number
+---@param gridSize number?
+---@return number
 local function snapAnchorOffset(offset, gridSize)
     if not gridSize or gridSize <= 0 then
         return offset;
@@ -20,6 +30,10 @@ local function snapAnchorOffset(offset, gridSize)
     return zo_roundToNearest(offset, gridSize);
 end;
 
+---Snaps all position values to the grid
+---@param position KFS_Position?
+---@param gridSize number?
+---@return KFS_Position?
 function PanelUtils.snapPositionToGrid(position, gridSize)
     if not position or not gridSize or gridSize <= 0 then
         return nil;
@@ -33,6 +47,12 @@ function PanelUtils.snapPositionToGrid(position, gridSize)
     return snapped;
 end;
 
+---Calculates X offset for an anchor point
+---@param point integer
+---@param left number
+---@param width number
+---@param rootWidth number
+---@return number
 local function getAnchorPointX(point, left, width, rootWidth)
     if point == LEFT or point == TOPLEFT or point == BOTTOMLEFT then
         return left;
@@ -44,6 +64,12 @@ local function getAnchorPointX(point, left, width, rootWidth)
     return left;
 end;
 
+---Calculates Y offset for an anchor point
+---@param point integer
+---@param top number
+---@param height number
+---@param rootHeight number
+---@return number
 local function getAnchorPointY(point, top, height, rootHeight)
     if point == TOP or point == TOPLEFT or point == TOPRIGHT then
         return top;
@@ -55,11 +81,23 @@ local function getAnchorPointY(point, top, height, rootHeight)
     return top;
 end;
 
+---Computes relative offsets between control and GuiRoot
+---@param control userdata
+---@param point integer
+---@param relativePoint integer
+---@param left number
+---@param top number
+---@param definition KhajiitFengShuiPanelDefinition
+---@return number offsetX
+---@return number offsetY
 local function computeRelativeOffsets(control, point, relativePoint, left, top, definition)
     local rootWidth = GuiRoot:GetWidth() or 0;
     local rootHeight = GuiRoot:GetHeight() or 0;
     local owner = ZO_GetControlOwnerObject(control);
 
+    ---@param currentSize number?
+    ---@param fallbackValue any
+    ---@return number
     local function resolveDimension(currentSize, fallbackValue)
         local size = currentSize;
         if size and size ~= 0 then
@@ -85,6 +123,10 @@ local function computeRelativeOffsets(control, point, relativePoint, left, top, 
     return controlAnchorX - targetAnchorX, controlAnchorY - targetAnchorY;
 end;
 
+---Applies anchor to control at specified position
+---@param panel KhajiitFengShuiPanel
+---@param left number
+---@param top number
 function PanelUtils.applyControlAnchor(panel, left, top)
     if not panel then
         return;
@@ -118,6 +160,10 @@ function PanelUtils.applyControlAnchor(panel, left, top)
     anchor:Set(control);
 end;
 
+---Applies width and height to control
+---@param control userdata?
+---@param width any
+---@param height any
 function PanelUtils.applySizing(control, width, height)
     if not control then
         return;
@@ -140,6 +186,8 @@ function PanelUtils.applySizing(control, width, height)
     end;
 end;
 
+---Enables scale inheritance recursively for control and children
+---@param control userdata?
 function PanelUtils.enableInheritScaleRecursive(control)
     if not control then
         return;
@@ -158,6 +206,9 @@ function PanelUtils.enableInheritScaleRecursive(control)
     end;
 end;
 
+---Applies scale transform to panel control
+---@param panel KhajiitFengShuiPanel?
+---@param scale number?
 function PanelUtils.applyScale(panel, scale)
     if not panel then
         return;
@@ -178,10 +229,20 @@ function PanelUtils.applyScale(panel, scale)
     end;
 end;
 
+---Formats position and label into display string
+---@param left number?
+---@param top number?
+---@param labelText string
+---@return string
 function PanelUtils.formatPositionMessage(left, top, labelText)
     return string.format("%d, %d | %s", left or 0, top or 0, labelText);
 end;
 
+---Creates movable overlay window and label for panel
+---@param panelId string
+---@param control userdata
+---@return userdata overlay
+---@return userdata label
 function PanelUtils.createOverlay(panelId, control)
     local windowManager = GetWindowManager();
     local overlay = windowManager:CreateTopLevelWindow(string.format("KhajiitFengShuiMover_%s", panelId));
@@ -203,6 +264,8 @@ function PanelUtils.createOverlay(panelId, control)
     backdrop:SetDrawLevel(2);
     backdrop:SetDrawTier(DT_LOW);
 
+    overlay.backdrop = backdrop;
+
     local label = windowManager:CreateControl(nil, overlay, CT_LABEL);
     label:SetFont("ZoFontGamepadHeaderDataValue");
     label:SetHorizontalAlignment(TEXT_ALIGN_LEFT);
@@ -212,19 +275,23 @@ function PanelUtils.createOverlay(panelId, control)
     label:SetDrawLayer(DL_OVERLAY);
     label:SetDrawLevel(5);
     label:SetDrawTier(DT_MEDIUM);
+    label:SetMouseEnabled(false);
     label:SetText("0, 0");
 
     local labelBackground = windowManager:CreateControl(nil, label, CT_BACKDROP);
     labelBackground:SetAnchorFill();
     labelBackground:SetCenterColor(0, 0, 0, 0.75);
     labelBackground:SetEdgeColor(0, 0, 0, 0);
-    labelBackground:SetDrawLayer(DL_BACKGROUND);
-    labelBackground:SetDrawLevel(4);
+    labelBackground:SetDrawLayer(DL_OVERLAY);
+    labelBackground:SetDrawLevel(5);
     labelBackground:SetDrawTier(DT_LOW);
+    labelBackground:SetMouseEnabled(false);
 
     return overlay, label;
 end;
 
+---Syncs overlay dimensions to match control size with scale
+---@param panel KhajiitFengShuiPanel
 function PanelUtils.syncOverlaySize(panel)
     local control = panel.control;
     local overlay = panel.overlay;
@@ -238,17 +305,50 @@ function PanelUtils.syncOverlaySize(panel)
     overlay:SetDimensions(width * scale, height * scale);
 end;
 
+---Sets overlay highlight color based on active state
+---@param panel KhajiitFengShuiPanel
+---@param isActive boolean
+function PanelUtils.setOverlayHighlight(panel, isActive)
+    if not (panel and panel.overlay and panel.overlay.backdrop) then
+        return;
+    end;
+
+    local backdrop = panel.overlay.backdrop;
+    if isActive then
+        backdrop:SetCenterColor(0.2, 0.8, 0.2, 0.35);
+        backdrop:SetEdgeColor(0.2, 0.9, 0.2, 1.0);
+    else
+        backdrop:SetCenterColor(0.05, 0.6, 0.9, 0.25);
+        backdrop:SetEdgeColor(0.05, 0.6, 0.9, 0.9);
+    end;
+end;
+
+---Updates overlay label text
+---@param labelControl userdata?
+---@param message string
 function PanelUtils.updateOverlayLabel(labelControl, message)
     if labelControl then
         labelControl:SetText(message);
     end;
 end;
 
+---Gets left and top position from handler
+---@param handler any
+---@param snapToGrid boolean?
+---@return number left
+---@return number top
 function PanelUtils.getAnchorPosition(handler, snapToGrid)
     local position = handler:GetLeftTopPosition(snapToGrid);
     return position.left or 0, position.top or 0;
 end;
 
+---Converts moveable position to anchor points and offsets
+---@param position KFS_Position?
+---@param gridSize number?
+---@return integer point
+---@return integer relativePoint
+---@return number offsetX
+---@return number offsetY
 local function convertMoveablePositionToAnchor(position, gridSize)
     if not position then
         return TOPLEFT, TOPLEFT, 0, 0;
@@ -305,6 +405,10 @@ local function convertMoveablePositionToAnchor(position, gridSize)
     return point, point, offsetX, offsetY;
 end;
 
+---Applies control anchor from moveable position data
+---@param panel KhajiitFengShuiPanel?
+---@param position KFS_Position?
+---@param gridSize number?
 function PanelUtils.applyControlAnchorFromPosition(panel, position, gridSize)
     if not panel or not position then
         return;

@@ -1,3 +1,4 @@
+---@type table<string, string>
 local strings =
 {
     KFS_NAME = "Khajiit Feng Shui";
@@ -8,10 +9,10 @@ local strings =
     KFS_SNAP_SIZE = "Grid Size";
     KFS_SNAP_SIZE_DESC = "Size of the snapping grid in pixels.";
     KFS_RESET_ALL = "Reset Positions";
-    KFS_RESET_ALL_DESC = "Reset all supported frames to their default positions.";
+    KFS_RESET_ALL_DESC = "Reset all supported frames to their default positions and scales.\n\n|cFF6666WARNING:|r This will reload the UI.";
     KFS_ENABLE_BUFF_ANIMATIONS = "Enable Buff Animations";
-    KFS_ENABLE_BUFF_ANIMATIONS_DESC = "Show the game's default cooldown animation on buff icons. Requires UI reload.";
-    KFS_ENABLE_GCD = "Enable Global Cooldown Ring";
+    KFS_ENABLE_BUFF_ANIMATIONS_DESC_RELOAD = "Show the game's default cooldown animation on buff icons.\n\n|cFF6666WARNING:|r Changing this setting will reload the UI.";
+    KFS_ENABLE_GCD = "Enable Global Cooldown";
     KFS_ENABLE_GCD_DESC = "Toggle the radial global cooldown animation on the action bar.";
     KFS_PYRAMID_LAYOUT = "Pyramid Layout";
     KFS_PYRAMID_LAYOUT_DESC = "Automatically arrange Health, Magicka, and Stamina bars in a pyramid layout. Health on top center, Magicka and Stamina below on left and right.";
@@ -20,7 +21,8 @@ local strings =
     KFS_SCALE_SLIDER_LABEL = "Scale";
     KFS_SCALE_SLIDER_DESC = "Adjust the size of this control.";
     KFS_PROFILE_MODE = "Layout Scope";
-    KFS_PROFILE_MODE_DESC = "Choose whether layouts are shared account-wide or stored per character.";
+    KFS_PROFILE_MODE_DESC_RELOAD = "Choose whether layouts are shared account-wide or stored per character.\n\n|cFF6666WARNING:|r Changing this setting will reload the UI.";
+    KFS_PROFILE_MODE_TOGGLE = "Change";
     KFS_PROFILE_ACCOUNT = "Account Wide";
     KFS_PROFILE_CHARACTER = "Per Character";
     KFS_KEYBIND_ENTER_EDIT_MODE = "Toggle Edit Mode";
@@ -29,8 +31,8 @@ local strings =
     KFS_KEYBIND_NEXT_PANEL = "Next Panel";
     KFS_EDIT_MODE_HINT = "Right Stick moves, LB/RB or D-Pad cycles panels, B exits.";
     KFS_SECTION_CONTROLS = "Individual Controls";
-    KFS_MOVE_BUTTON = "Adjust";
-    KFS_MOVE_BUTTON_DESC = "Currectly positioned at: ";
+    KFS_MOVE_BUTTON = "Move";
+    KFS_MOVE_BUTTON_DESC = "Currently positioned at: ";
     KFS_EDIT_MODE_ENABLED = "Khajiit Feng Shui edit mode enabled.";
     KFS_EDIT_MODE_DISABLED = "Khajiit Feng Shui edit mode disabled.";
 
