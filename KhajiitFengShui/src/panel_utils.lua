@@ -267,24 +267,24 @@ function PanelUtils.createOverlay(panelId, control)
     overlay.backdrop = backdrop;
 
     local label = windowManager:CreateControl(nil, overlay, CT_LABEL);
-    label:SetFont("ZoFontGamepadHeaderDataValue");
-    label:SetHorizontalAlignment(TEXT_ALIGN_LEFT);
-    label:SetVerticalAlignment(TEXT_ALIGN_TOP);
-    label:SetAnchor(TOPLEFT, overlay, TOPLEFT, 4, 4);
+    label:SetFont("ZoFontGamepadBold27");
+    label:SetHorizontalAlignment(TEXT_ALIGN_CENTER);
+    label:SetVerticalAlignment(TEXT_ALIGN_BOTTOM);
+    label:SetAnchor(BOTTOM, overlay, BOTTOM, 0, -4);
     label:SetColor(1, 1, 0, 1);
     label:SetDrawLayer(DL_OVERLAY);
-    label:SetDrawLevel(5);
-    label:SetDrawTier(DT_MEDIUM);
+    label:SetDrawLevel(6);
+    label:SetDrawTier(DT_HIGH);
     label:SetMouseEnabled(false);
     label:SetText("0, 0");
 
     local labelBackground = windowManager:CreateControl(nil, label, CT_BACKDROP);
     labelBackground:SetAnchorFill();
-    labelBackground:SetCenterColor(0, 0, 0, 0.75);
+    labelBackground:SetCenterColor(0, 0, 0, 0.85);
     labelBackground:SetEdgeColor(0, 0, 0, 0);
     labelBackground:SetDrawLayer(DL_OVERLAY);
     labelBackground:SetDrawLevel(5);
-    labelBackground:SetDrawTier(DT_LOW);
+    labelBackground:SetDrawTier(DT_MEDIUM);
     labelBackground:SetMouseEnabled(false);
 
     return overlay, label;

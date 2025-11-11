@@ -20,6 +20,28 @@ function EditModeController:Initialize()
     SLASH_COMMANDS["/kfsedit"] = function ()
         self:ToggleEditMode();
     end;
+
+    SLASH_COMMANDS["/kfslabels"] = function ()
+        if not self.addon then
+            return;
+        end;
+
+        if not self.addon.savedVars then
+            CHAT_ROUTER:AddSystemMessage("[KhajiitFengShui] Saved variables not initialized");
+            return;
+        end;
+
+        if not self:IsEditModeActive() then
+            CHAT_ROUTER:AddSystemMessage("[KhajiitFengShui] Label toggle only works in edit mode. Use /kfsedit to enter edit mode");
+            return;
+        end;
+
+        self.addon.savedVars.showAllLabels = not self.addon.savedVars.showAllLabels;
+        local status = self.addon.savedVars.showAllLabels and "all labels visible" or "only active label visible";
+        CHAT_ROUTER:AddSystemMessage(string.format("[KhajiitFengShui] Labels: %s", status));
+
+        self.addon:RefreshAllPanels();
+    end;
 end;
 
 ---Checks if edit mode is active

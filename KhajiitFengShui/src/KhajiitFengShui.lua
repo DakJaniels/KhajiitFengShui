@@ -1,5 +1,5 @@
 local ADDON_NAME = "KhajiitFengShui";
-local ADDON_VERSION = "1.1.0";
+local ADDON_VERSION = "1.1.5";
 
 ---@class KFS_SavedVars
 ---@field grid { enabled: boolean, size: number }
@@ -11,6 +11,7 @@ local ADDON_VERSION = "1.1.0";
 ---@field alwaysExpandedBars boolean
 ---@field pyramidOffset { left: number, top: number }
 ---@field profileMode string
+---@field showAllLabels boolean
 
 ---@class KFS_Defaults
 ---@field grid { enabled: boolean, size: number }
@@ -22,6 +23,7 @@ local ADDON_VERSION = "1.1.0";
 ---@field pyramidLayoutEnabled boolean
 ---@field pyramidOffset { left: number, top: number }
 ---@field alwaysExpandedBars boolean
+---@field showAllLabels boolean
 
 ---@class KhajiitFengShui
 ---@field name string Addon name
@@ -59,7 +61,7 @@ local ADDON_VERSION = "1.1.0";
 ---@field buffAnimationHookRegistered boolean
 ---@field globalCooldownActive boolean
 ---@field groupFrameHooksRegistered boolean
----@field LHAS table|nil LibHarvensAddonSettings instance
+---@field LHAS LibHarvensAddonSettings LibHarvensAddonSettings instance
 ---@field settingsPanel table|nil Settings panel instance
 ---@field defaults KFS_Defaults Default configuration values
 local KhajiitFengShui =
@@ -114,6 +116,7 @@ KhajiitFengShui.defaults =
     pyramidLayoutEnabled = false;
     pyramidOffset = { left = 0; top = 0 };
     alwaysExpandedBars = false;
+    showAllLabels = false;
 };
 
 local SCALE_MIN_PERCENT = 50;
@@ -161,6 +164,7 @@ local PanelDefinitions = KFS_PanelDefinitions;
 local GridOverlay = KFS_GridOverlay;
 local EditModeController = KFS_EditModeController;
 local SettingsController = KFS_SettingsController;
+
 
 ---Builds overlay message with position and scale
 ---@param panel KhajiitFengShuiPanel
@@ -211,6 +215,9 @@ local function EnsureSavedVarStructure(savedVars, defaults)
     end;
     if savedVars.pyramidOffset == nil then
         savedVars.pyramidOffset = PanelUtils.copyPosition(defaults.pyramidOffset);
+    end;
+    if savedVars.showAllLabels == nil then
+        savedVars.showAllLabels = defaults.showAllLabels or false;
     end;
 end;
 
@@ -379,12 +386,32 @@ function KhajiitFengShui:IsPanelUnlocked(panel)
         return true;
     end;
 
-    return self.activePanelId == panel.definition.id;
+    if not self.activePanelId then
+        return false;
+    end;
+
+    if self.activePanelId == panel.definition.id then
+        return true;
+    end;
+
+    if self.savedVars.pyramidLayoutEnabled then
+        local isPyramidBar = panel.definition.id == "playerHealth" or panel.definition.id == "playerMagicka" or panel.definition.id == "playerStamina";
+        local isActivePyramidBar = self.activePanelId == "playerHealth" or self.activePanelId == "playerMagicka" or self.activePanelId == "playerStamina";
+        if isPyramidBar and isActivePyramidBar then
+            return true;
+        end;
+    end;
+
+    return false;
 end;
 
 ---Refreshes panel state (locked, visible, etc)
 ---@param panel KhajiitFengShuiPanel
 function KhajiitFengShui:RefreshPanelState(panel)
+    if not (panel and panel.handler) then
+        return;
+    end;
+
     local unlocked = self:IsPanelUnlocked(panel);
     local shouldGamepadMove = false;
     local isActive = false;
@@ -395,16 +422,24 @@ function KhajiitFengShui:RefreshPanelState(panel)
         shouldGamepadMove = self.activePanelId ~= nil and panel.definition.id == self.activePanelId;
         isActive = panel.definition.id == self.activePanelId;
     end;
-    if panel.handler then
-        panel.handler:ToggleLock(not unlocked);
-        if panel.gamepadActive ~= shouldGamepadMove then
-            panel.handler:ToggleGamepadMove(shouldGamepadMove, 10000);
-            panel.gamepadActive = shouldGamepadMove;
-        end;
+
+    panel.handler:ToggleLock(not unlocked);
+    if panel.gamepadActive ~= shouldGamepadMove then
+        panel.handler:ToggleGamepadMove(shouldGamepadMove, 10000);
+        panel.gamepadActive = shouldGamepadMove;
     end;
+
     if panel.overlay then
         panel.overlay:SetHidden(not self:IsPanelVisible(panel));
         PanelUtils.setOverlayHighlight(panel, isActive);
+    end;
+
+    if panel.label then
+        local showLabel = false;
+        if self:IsPanelVisible(panel) then
+            showLabel = self.savedVars.showAllLabels or isActive;
+        end;
+        panel.label:SetHidden(not showLabel);
     end;
 end;
 
@@ -641,64 +676,14 @@ end;
 ---Starts moving a control
 ---@param panelId string
 function KhajiitFengShui:StartControlMove(panelId)
-    if self.activePanelId and self.activePanelId ~= panelId then
-        local previous = self.panelLookup[self.activePanelId];
-        if previous and previous.handler then
-            previous.handler:ToggleGamepadMove(false);
-            previous.handler:ToggleLock(true);
-        end;
-    end;
-
     local panel = self.panelLookup[panelId];
-    if not panel or not panel.handler then
+    if not (panel and panel.handler) then
         return;
     end;
 
     self.activePanelId = panelId;
     self:RefreshAllPanels();
     self:RefreshGridOverlay();
-
-    if self.savedVars.pyramidLayoutEnabled and (panelId == "playerHealth" or panelId == "playerMagicka" or panelId == "playerStamina") then
-        local healthPanel = self.panelLookup["playerHealth"];
-        local magickaPanel = self.panelLookup["playerMagicka"];
-        local staminaPanel = self.panelLookup["playerStamina"];
-
-        if healthPanel and healthPanel.handler then
-            healthPanel.handler:ToggleLock(false);
-            if IsInGamepadPreferredMode() then
-                pcall(function () healthPanel.handler:ToggleGamepadMove(true, 10000); end);
-                healthPanel.gamepadActive = true;
-            else
-                healthPanel.gamepadActive = false;
-            end;
-        end;
-        if magickaPanel and magickaPanel.handler then
-            magickaPanel.handler:ToggleLock(false);
-            if IsInGamepadPreferredMode() then
-                pcall(function () magickaPanel.handler:ToggleGamepadMove(true, 10000); end);
-                magickaPanel.gamepadActive = true;
-            else
-                magickaPanel.gamepadActive = false;
-            end;
-        end;
-        if staminaPanel and staminaPanel.handler then
-            staminaPanel.handler:ToggleLock(false);
-            if IsInGamepadPreferredMode() then
-                pcall(function () staminaPanel.handler:ToggleGamepadMove(true, 10000); end);
-                staminaPanel.gamepadActive = true;
-            else
-                staminaPanel.gamepadActive = false;
-            end;
-        end;
-    else
-        panel.handler:ToggleLock(false);
-        if IsInGamepadPreferredMode() then
-            panel.handler:ToggleGamepadMove(true, 10000);
-            panel.gamepadActive = true;
-        else
-            panel.gamepadActive = false;
-        end;
-    end;
 end;
 
 ---Handles move start event
@@ -794,100 +779,28 @@ function KhajiitFengShui:OnMoveStop(panel, handler, newPos, isExplicitStop)
     em:UnregisterForUpdate(updateName);
 
     if self.savedVars.pyramidLayoutEnabled and (panel.definition.id == "playerHealth" or panel.definition.id == "playerMagicka" or panel.definition.id == "playerStamina") then
-        local position = newPos or handler:GetPosition(true);
         local left, top = PanelUtils.getAnchorPosition(handler, true);
         self:UpdatePyramidLayoutFromPosition(panel.definition.id, left, top);
+    else
+        local position = newPos or handler:GetPosition(true);
+        self.savedVars.positions[panel.definition.id] = PanelUtils.copyPosition(position);
 
-        local healthPanel = self.panelLookup["playerHealth"];
-        local magickaPanel = self.panelLookup["playerMagicka"];
-        local staminaPanel = self.panelLookup["playerStamina"];
+        local gridSize = self:GetSnapSize();
+        PanelUtils.applyControlAnchorFromPosition(panel, position, gridSize);
 
-        if IsInGamepadPreferredMode() then
-            if healthPanel and healthPanel.handler and healthPanel.gamepadActive then
-                pcall(function () healthPanel.handler:ToggleGamepadMove(false); end);
-                healthPanel.gamepadActive = false;
-            end;
-            if magickaPanel and magickaPanel.handler and magickaPanel.gamepadActive then
-                pcall(function () magickaPanel.handler:ToggleGamepadMove(false); end);
-                magickaPanel.gamepadActive = false;
-            end;
-            if staminaPanel and staminaPanel.handler and staminaPanel.gamepadActive then
-                pcall(function () staminaPanel.handler:ToggleGamepadMove(false); end);
-                staminaPanel.gamepadActive = false;
-            end;
+        if panel.definition.postApply then
+            panel.definition.postApply(panel.control, true);
         end;
 
-        if isExplicitStop or IsInGamepadPreferredMode() then
-            self.activePanelId = nil;
-            if not IsInGamepadPreferredMode() then
-                if healthPanel and healthPanel.handler then
-                    healthPanel.handler:ToggleLock(true);
-                end;
-                if magickaPanel and magickaPanel.handler then
-                    magickaPanel.handler:ToggleLock(true);
-                end;
-                if staminaPanel and staminaPanel.handler then
-                    staminaPanel.handler:ToggleLock(true);
-                end;
-            end;
-            self:RefreshAllPanels();
-            self:RefreshGridOverlay();
-
-            if self.editModeFocusId then
-                local focusedPanel = self.panelLookup[self.editModeFocusId];
-                if focusedPanel and focusedPanel.handler then
-                    focusedPanel.handler:ToggleLock(false);
-                    if IsInGamepadPreferredMode() then
-                        focusedPanel.handler:ToggleGamepadMove(true, 10000);
-                        focusedPanel.gamepadActive = true;
-                    else
-                        focusedPanel.gamepadActive = false;
-                    end;
-                end;
-            end;
-        else
-            self:RefreshAllPanels();
-        end;
-        return;
+        local left, top = PanelUtils.getAnchorPosition(handler, true);
+        local message = self:BuildOverlayMessage(panel, left, top);
+        UpdateOverlayLabel(panel, message);
     end;
-
-    local position = newPos or handler:GetPosition(true);
-    self.savedVars.positions[panel.definition.id] = PanelUtils.copyPosition(position);
-
-    local gridSize = self:GetSnapSize();
-    PanelUtils.applyControlAnchorFromPosition(panel, position, gridSize);
-
-    if panel.definition.postApply then
-        panel.definition.postApply(panel.control, true);
-    end;
-
-    local left, top = PanelUtils.getAnchorPosition(handler, true);
-    local message = self:BuildOverlayMessage(panel, left, top);
-    UpdateOverlayLabel(panel, message);
-
-    handler:ToggleGamepadMove(false);
-    panel.gamepadActive = false;
 
     if isExplicitStop or IsInGamepadPreferredMode() then
         self.activePanelId = nil;
-        if not IsInGamepadPreferredMode() then
-            handler:ToggleLock(true);
-        end;
         self:RefreshAllPanels();
         self:RefreshGridOverlay();
-
-        if self.editModeFocusId then
-            local focusedPanel = self.panelLookup[self.editModeFocusId];
-            if focusedPanel and focusedPanel.handler then
-                focusedPanel.handler:ToggleLock(false);
-                if IsInGamepadPreferredMode() then
-                    focusedPanel.handler:ToggleGamepadMove(true, 10000);
-                    focusedPanel.gamepadActive = true;
-                else
-                    focusedPanel.gamepadActive = false;
-                end;
-            end;
-        end;
     else
         self:RefreshAllPanels();
     end;
@@ -905,13 +818,24 @@ end;
 ---Creates mover handler for panel
 ---@param panel KhajiitFengShuiPanel
 function KhajiitFengShui:CreateMover(panel)
-    panel.overlay = CreateOverlay(panel);
+    if not panel then
+        return;
+    end;
 
-    ---@type LibCombatAlerts_MoveableControl
+    panel.overlay = CreateOverlay(panel);
+    if not panel.overlay then
+        return;
+    end;
+
     panel.handler = LCA.MoveableControl:New(panel.overlay, { color = 0x33DD33FF; size = 2 });
-    if panel.handler.SetCenterHighlightControl and panel.overlay then
+    if not panel.handler then
+        return;
+    end;
+
+    if panel.handler.SetCenterHighlightControl then
         panel.handler:SetCenterHighlightControl(panel.overlay);
     end;
+
     panel.handler:RegisterCallback(string.format("%s_MoveStart_%s", self.name, panel.definition.id), LCA.EVENT_CONTROL_MOVE_START, function ()
         self:OnMoveStart(panel, panel.handler);
     end);
@@ -978,12 +902,7 @@ end;
 ---Clears edit mode focus
 function KhajiitFengShui:ClearEditModeFocus()
     self.editModeFocusId = nil;
-    for _, panel in ipairs(self.panels) do
-        if panel.gamepadActive and panel.handler then
-            panel.handler:ToggleGamepadMove(false);
-            panel.gamepadActive = false;
-        end;
-    end;
+    self:RefreshAllPanels();
 end;
 
 ---Sets edit mode focus to a panel
@@ -1348,10 +1267,8 @@ function KhajiitFengShui:StopControlMove()
     end;
     local panel = self.panelLookup[self.activePanelId];
     if panel and panel.handler then
-        panel.handler:ToggleGamepadMove(false);
-        panel.handler:ToggleLock(true);
-        panel.gamepadActive = false;
-        self:OnMoveStop(panel, panel.handler, panel.handler:GetPosition(true), true);
+        local position = panel.handler:GetPosition(true);
+        self:OnMoveStop(panel, panel.handler, position, true);
     end;
 end;
 
@@ -1438,11 +1355,7 @@ function KhajiitFengShui:SetEditModeActive(active)
 
     local message = shouldEnable and GetString(KFS_EDIT_MODE_ENABLED) or GetString(KFS_EDIT_MODE_DISABLED);
 
-    if CHAT_ROUTER and CHAT_ROUTER.AddSystemMessage then
-        CHAT_ROUTER:AddSystemMessage(message);
-    else
-        d(message);
-    end;
+    CHAT_ROUTER:AddSystemMessage(message);
 
     if shouldEnable then
         self:ShowEditModeHint();
