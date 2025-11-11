@@ -115,11 +115,11 @@ function AttributeScaler:ApplyScaleToControl(control, scale)
         return;
     end;
 
-    control:SetTransformScale(scale);
-
-    local entry = self.entries[control];
-    if entry and entry.overlay then
-        entry.overlay:SetTransformScale(scale);
+    local controlName = control:GetName();
+    if controlName == "ZO_PlayerAttributeMountStamina" then
+        control:SetScale(scale);
+    else
+        control:SetTransformScale(scale);
     end;
 
     if not usesShrinkExpandModule(control) then
@@ -154,14 +154,22 @@ function AttributeScaler:ApplyScaleToControl(control, scale)
     local origNormal = self.originalWidths.normalWidth or module.normalWidth;
     local origExpanded = self.originalWidths.expandedWidth or module.expandedWidth;
     local origShrunk = self.originalWidths.shrunkWidth or module.shrunkWidth;
-
+    
+    local alwaysExpanded = KFS_AttributeScaler.alwaysExpandedEnabled or false;
+    
     if module.barInfo and module.barInfo[statType] and module.barControls and module.barControls[statType] then
         local info = module.barInfo[statType];
         local barControl = module.barControls[statType];
-
-        module.normalWidth = zo_round(origNormal * scale);
-        module.expandedWidth = zo_round(origExpanded * scale);
-        module.shrunkWidth = zo_round(origShrunk * scale);
+        
+        if alwaysExpanded then
+            module.normalWidth = zo_round(origExpanded * scale);
+            module.expandedWidth = zo_round(origExpanded * scale);
+            module.shrunkWidth = zo_round(origExpanded * scale);
+        else
+            module.normalWidth = zo_round(origNormal * scale);
+            module.expandedWidth = zo_round(origExpanded * scale);
+            module.shrunkWidth = zo_round(origShrunk * scale);
+        end;
 
         if info.value == nil then
             info.value = 0;
@@ -179,9 +187,23 @@ function AttributeScaler:ApplyScaleToControl(control, scale)
 end;
 
 function AttributeScaler:ReapplyAll()
-    for _, entry in pairs(self.entries) do
-        if entry and entry.control and entry.scale then
-            self:ApplyScaleToControl(entry.control, entry.scale);
+    for control, entry in pairs(self.entries) do
+        if entry and entry.scale then
+            local currentControl = control;
+            if control and control:GetName() == "ZO_PlayerAttributeMountStamina" then
+                currentControl = GetControl("ZO_PlayerAttributeMountStamina");
+                if currentControl and currentControl ~= control then
+                    entry.control = currentControl;
+                    self.entries[currentControl] = entry;
+                    self.entries[control] = nil;
+                end;
+            end;
+            if currentControl then
+                self:ApplyScaleToControl(currentControl, entry.scale);
+                if entry.panel and entry.panel.overlay and KFS_PanelUtils then
+                    KFS_PanelUtils.syncOverlaySize(entry.panel);
+                end;
+            end;
         end;
     end;
 end;
@@ -228,7 +250,64 @@ function AttributeScaler:EnsureEvents()
     end);
     EVENT_MANAGER:AddFilterForEvent(EVENT_NAMESPACE .. "_VISUAL_UPDATED", EVENT_UNIT_ATTRIBUTE_VISUAL_UPDATED, REGISTER_FILTER_UNIT_TAG, "player");
 
+    local function reapplyMountStaminaScale()
+        local mountControl = GetControl("ZO_PlayerAttributeMountStamina");
+        if mountControl then
+            local entry = self.entries[mountControl];
+            if not entry then
+                for control, existingEntry in pairs(self.entries) do
+                    if existingEntry and existingEntry.control and existingEntry.control:GetName() == "ZO_PlayerAttributeMountStamina" then
+                        entry = existingEntry;
+                        self.entries[mountControl] = entry;
+                        entry.control = mountControl;
+                        if control ~= mountControl then
+                            self.entries[control] = nil;
+                        end;
+                        break;
+                    end;
+                end;
+            end;
+            if entry and entry.scale then
+                self:ApplyScaleToControl(mountControl, entry.scale);
+            end;
+        end;
+    end;
+
+    EVENT_MANAGER:UnregisterForEvent(EVENT_NAMESPACE .. "_MOUNTED", EVENT_MOUNTED_STATE_CHANGED);
+    EVENT_MANAGER:RegisterForEvent(EVENT_NAMESPACE .. "_MOUNTED", EVENT_MOUNTED_STATE_CHANGED, function ()
+        zo_callLater(reapplyMountStaminaScale, 100);
+    end);
+
+    EVENT_MANAGER:UnregisterForEvent(EVENT_NAMESPACE .. "_MOUNT_POWER", EVENT_POWER_UPDATE);
+    EVENT_MANAGER:RegisterForEvent(EVENT_NAMESPACE .. "_MOUNT_POWER", EVENT_POWER_UPDATE, function (_, unitTag, powerPoolIndex, powerType, current, max, effectiveMax)
+        if unitTag == "player" and powerType == COMBAT_MECHANIC_FLAGS_MOUNT_STAMINA then
+            zo_callLater(reapplyMountStaminaScale, 50);
+        end;
+    end);
+    EVENT_MANAGER:AddFilterForEvent(EVENT_NAMESPACE .. "_MOUNT_POWER", EVENT_POWER_UPDATE, REGISTER_FILTER_POWER_TYPE, COMBAT_MECHANIC_FLAGS_MOUNT_STAMINA);
+
+    EVENT_MANAGER:UnregisterForEvent(EVENT_NAMESPACE .. "_INTERFACE_SETTING", EVENT_INTERFACE_SETTING_CHANGED);
+    EVENT_MANAGER:RegisterForEvent(EVENT_NAMESPACE .. "_INTERFACE_SETTING", EVENT_INTERFACE_SETTING_CHANGED, function (_, settingType, settingId)
+        if settingType == SETTING_TYPE_UI and settingId == UI_SETTING_SHOW_RESOURCE_BARS then
+            zo_callLater(reapplyMountStaminaScale, 50);
+        end;
+    end);
+    EVENT_MANAGER:AddFilterForEvent(EVENT_NAMESPACE .. "_INTERFACE_SETTING", EVENT_INTERFACE_SETTING_CHANGED, REGISTER_FILTER_SETTING_SYSTEM_TYPE, SETTING_TYPE_UI);
+
+    EVENT_MANAGER:UnregisterForEvent(EVENT_NAMESPACE .. "_GAMEPAD_MODE", EVENT_GAMEPAD_PREFERRED_MODE_CHANGED);
+    EVENT_MANAGER:RegisterForEvent(EVENT_NAMESPACE .. "_GAMEPAD_MODE", EVENT_GAMEPAD_PREFERRED_MODE_CHANGED, function ()
+        zo_callLater(function ()
+                         self:ReapplyAll();
+                         reapplyMountStaminaScale();
+                     end, 200);
+    end);
+
     self.eventsRegistered = true;
+end;
+
+function AttributeScaler:SetAlwaysExpanded(enabled)
+    self.alwaysExpandedEnabled = enabled == true;
+    self:ReapplyAll();
 end;
 
 function AttributeScaler:Apply(panel, scale)
@@ -244,9 +323,14 @@ function AttributeScaler:Apply(panel, scale)
         control = control;
         overlay = panel.overlay;
         scale = scale;
+        panel = panel;
     };
 
     self:ApplyScaleToControl(control, scale);
+    
+    if panel.overlay and KFS_PanelUtils then
+        KFS_PanelUtils.syncOverlaySize(panel);
+    end;
 end;
 
 KFS_AttributeScaler = AttributeScaler:New();

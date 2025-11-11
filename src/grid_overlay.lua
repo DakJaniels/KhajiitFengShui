@@ -11,12 +11,31 @@ local GRID_COLOR =
     a = 0.35;
 };
 
+local function CreateLineFactory(parentControl)
+    return function ()
+        local line = wm:CreateControl(nil, parentControl, CT_LINE);
+        line:SetDrawLayer(DL_OVERLAY);
+        line:SetDrawTier(DT_LOW);
+        line:SetDrawLevel(2);
+        line:SetColor(GRID_COLOR.r, GRID_COLOR.g, GRID_COLOR.b, GRID_COLOR.a);
+        line:SetThickness(1);
+        return line;
+    end;
+end;
+
+local function ResetLine(line)
+    line:SetHidden(true);
+    line:ClearAnchors();
+end;
+
 function GridOverlay:New()
     local overlay =
     {
         control = nil;
-        verticalLines = {};
-        horizontalLines = {};
+        verticalLinePool = nil;
+        horizontalLinePool = nil;
+        activeVerticalLines = {};
+        activeHorizontalLines = {};
         size = 0;
     };
 
@@ -40,37 +59,25 @@ function GridOverlay:EnsureControl()
     control:SetClampedToScreen(false);
 
     self.control = control;
+    self.verticalLinePool = ZO_ObjectPool:New(CreateLineFactory(control), ResetLine);
+    self.horizontalLinePool = ZO_ObjectPool:New(CreateLineFactory(control), ResetLine);
 end;
 
-function GridOverlay:AcquireLine(pool, index)
-    local line = pool[index];
-    if not line then
-        line = wm:CreateControl(nil, self.control, CT_LINE);
-        line:SetDrawLayer(DL_OVERLAY);
-        line:SetDrawTier(DT_LOW);
-        line:SetDrawLevel(2);
-        line:SetColor(GRID_COLOR.r, GRID_COLOR.g, GRID_COLOR.b, GRID_COLOR.a);
-        line:SetThickness(1);
-        pool[index] = line;
-    end;
-
-    line:SetHidden(false);
-    return line;
-end;
-
-function GridOverlay:HideUnused(pool, startIndex)
-    for index = startIndex, #pool do
-        local line = pool[index];
-        if line then
-            line:SetHidden(true);
-        end;
-    end;
-end;
 
 function GridOverlay:UpdateLines(size)
-    if not self.control then
+    if not self.control or not self.verticalLinePool or not self.horizontalLinePool then
         return;
     end;
+
+    for _, lineKey in pairs(self.activeVerticalLines) do
+        self.verticalLinePool:ReleaseObject(lineKey);
+    end;
+    ZO_ClearTable(self.activeVerticalLines);
+
+    for _, lineKey in pairs(self.activeHorizontalLines) do
+        self.horizontalLinePool:ReleaseObject(lineKey);
+    end;
+    ZO_ClearTable(self.activeHorizontalLines);
 
     local rootWidth = GuiRoot:GetWidth() or 0;
     local rootHeight = GuiRoot:GetHeight() or 0;
@@ -78,20 +85,26 @@ function GridOverlay:UpdateLines(size)
     local verticalCount = math.floor(rootWidth / size);
     for i = 0, verticalCount do
         local offsetX = zo_round(i * size);
-        local line = self:AcquireLine(self.verticalLines, i + 1);
-        line:SetAnchor(TOPLEFT, self.control, TOPLEFT, offsetX, 0);
-        line:SetAnchor(BOTTOMLEFT, self.control, BOTTOMLEFT, offsetX, 0);
+        local line, lineKey = self.verticalLinePool:AcquireObject();
+        line:SetHidden(false);
+        local anchorTop = ZO_Anchor:New(TOPLEFT, self.control, TOPLEFT, offsetX, 0);
+        local anchorBottom = ZO_Anchor:New(BOTTOMLEFT, self.control, BOTTOMLEFT, offsetX, 0);
+        anchorTop:Set(line);
+        anchorBottom:AddToControl(line);
+        self.activeVerticalLines[lineKey] = lineKey;
     end;
-    self:HideUnused(self.verticalLines, verticalCount + 2);
 
     local horizontalCount = math.floor(rootHeight / size);
     for i = 0, horizontalCount do
         local offsetY = zo_round(i * size);
-        local line = self:AcquireLine(self.horizontalLines, i + 1);
-        line:SetAnchor(TOPLEFT, self.control, TOPLEFT, 0, offsetY);
-        line:SetAnchor(TOPRIGHT, self.control, TOPRIGHT, 0, offsetY);
+        local line, lineKey = self.horizontalLinePool:AcquireObject();
+        line:SetHidden(false);
+        local anchorLeft = ZO_Anchor:New(TOPLEFT, self.control, TOPLEFT, 0, offsetY);
+        local anchorRight = ZO_Anchor:New(TOPRIGHT, self.control, TOPRIGHT, 0, offsetY);
+        anchorLeft:Set(line);
+        anchorRight:AddToControl(line);
+        self.activeHorizontalLines[lineKey] = lineKey;
     end;
-    self:HideUnused(self.horizontalLines, horizontalCount + 2);
 end;
 
 function GridOverlay:Hide()
@@ -100,8 +113,16 @@ function GridOverlay:Hide()
     end;
 
     self.control:SetHidden(true);
-    self:HideUnused(self.verticalLines, 1);
-    self:HideUnused(self.horizontalLines, 1);
+    
+    if self.verticalLinePool then
+        self.verticalLinePool:ReleaseAllObjects();
+        ZO_ClearTable(self.activeVerticalLines);
+    end;
+    
+    if self.horizontalLinePool then
+        self.horizontalLinePool:ReleaseAllObjects();
+        ZO_ClearTable(self.activeHorizontalLines);
+    end;
 end;
 
 function GridOverlay:Refresh(visible, size)

@@ -13,5 +13,6 @@ src/attribute_scaler.lua
 src/panel_definitions.lua
 src/edit_mode_controller.lua
 src/grid_overlay.lua
+src/settings_controller.lua
 src/KhajiitFengShui.lua
 

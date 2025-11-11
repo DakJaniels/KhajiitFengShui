@@ -1,0 +1,299 @@
+local SettingsController = {};
+SettingsController.__index = SettingsController;
+
+local PanelUtils = KFS_PanelUtils;
+local PanelDefinitions = KFS_PanelDefinitions;
+
+local SCALE_MIN_PERCENT = 50;
+local SCALE_MAX_PERCENT = 150;
+local SCALE_STEP_PERCENT = 5;
+local DEFAULT_SCALE = 1;
+
+function SettingsController:New(addon)
+    local controller =
+    {
+        addon = addon;
+        settingsPanel = nil;
+    };
+
+    return setmetatable(controller, self);
+end;
+
+local function GetProfileModeLabel(mode)
+    if mode == "character" then
+        return GetString(KFS_PROFILE_CHARACTER);
+    end;
+    return GetString(KFS_PROFILE_ACCOUNT);
+end;
+
+--- @param panel KhajiitFengShuiPanel
+--- @return string
+local function BuildPositionText(panel)
+    if not (panel and panel.handler) then
+        return "N/A";
+    end;
+    local left, top = PanelUtils.getAnchorPosition(panel.handler, true);
+    return string.format("%d, %d", left, top);
+end;
+
+function SettingsController:AddPanelSetting(panel)
+    if not self.settingsPanel then
+        return;
+    end;
+
+    if not panel.sectionAdded then
+        self.settingsPanel:AddSetting(
+            {
+                type = self.addon.LHAS.ST_SECTION;
+                label = PanelDefinitions.getLabel(panel.definition);
+            });
+        panel.sectionAdded = true;
+    end;
+
+    if not panel.scaleSettingAdded then
+        self.settingsPanel:AddSetting(
+            {
+                type = self.addon.LHAS.ST_SLIDER;
+                label = GetString(KFS_SCALE_SLIDER_LABEL);
+                tooltip = GetString(KFS_SCALE_SLIDER_DESC);
+                min = SCALE_MIN_PERCENT;
+                max = SCALE_MAX_PERCENT;
+                step = SCALE_STEP_PERCENT;
+                default = zo_roundToNearest((panel.defaultScale or DEFAULT_SCALE) * 100, SCALE_STEP_PERCENT);
+                getFunction = function ()
+                    return self.addon:GetPanelScalePercent(panel.definition.id);
+                end;
+                setFunction = function (value)
+                    self.addon:SetPanelScale(panel.definition.id, value / 100);
+                end;
+            });
+        panel.scaleSettingAdded = true;
+    end;
+
+    if not panel.moveSettingAdded then
+        self.settingsPanel:AddSetting(
+            {
+                type = self.addon.LHAS.ST_BUTTON;
+                label = PanelDefinitions.getLabel(panel.definition);
+                tooltip = function ()
+                    return string.format("%s\n%s", GetString(KFS_MOVE_BUTTON_DESC), BuildPositionText(panel));
+                end;
+                buttonText = GetString(KFS_MOVE_BUTTON);
+                disable = function ()
+                    return panel.handler == nil;
+                end;
+                clickHandler = function ()
+                    if self.addon.activePanelId == panel.definition.id then
+                        self.addon:StopControlMove();
+                    else
+                        self.addon:StartControlMove(panel.definition.id);
+                    end;
+                end;
+            });
+        panel.moveSettingAdded = true;
+    end;
+end;
+
+function SettingsController:CreateSettingsMenu()
+    if not self.addon.LHAS then
+        return;
+    end;
+
+    local settings = self.addon.LHAS:AddAddon(GetString(KFS_SETTINGS),
+                                   {
+                                       allowDefaults = true;
+                                       defaultsFunction = function ()
+                                           self.addon:SetProfileMode(self.addon.defaults.profileMode, true);
+                                           self.addon.savedVars.grid.enabled = self.addon.defaults.grid.enabled;
+                                           self.addon.savedVars.grid.size = self.addon.defaults.grid.size;
+                                           self.addon:ResetPositions();
+                                           self.addon:ApplySnapSettings();
+                                           self.addon.savedVars.buffAnimationsEnabled = self.addon.defaults.buffAnimationsEnabled;
+                                           self.addon:UpdateBuffAnimationHook();
+                                           self.addon.savedVars.globalCooldownEnabled = self.addon.defaults.globalCooldownEnabled;
+                                           self.addon:ApplyGlobalCooldownSetting();
+                                           self.addon.activePanelId = nil;
+                                           self.addon:RefreshAllPanels();
+                                           self.addon:RefreshGridOverlay();
+                                       end;
+                                   });
+
+    local controls =
+    {
+        {
+            type = self.addon.LHAS.ST_LABEL;
+            label = GetString(KFS_SETTINGS_DESC);
+        };
+    };
+
+    if ZO_IsConsoleUI() then
+        table.insert(controls,
+                     {
+                         type = self.addon.LHAS.ST_BUTTON;
+                         label = GetString(KFS_PROFILE_MODE);
+                         tooltip = GetString(KFS_PROFILE_MODE_DESC);
+                         buttonText = function ()
+                             return GetProfileModeLabel(self.addon:GetProfileMode());
+                         end;
+                         clickHandler = function ()
+                             local nextMode = self.addon:GetProfileMode() == "account" and "character" or "account";
+                             self.addon:SetProfileMode(nextMode);
+                         end;
+                     });
+    else
+        local profileModeItems =
+        {
+            {
+                name = GetString(KFS_PROFILE_ACCOUNT);
+                data = "account";
+            };
+            {
+                name = GetString(KFS_PROFILE_CHARACTER);
+                data = "character";
+            };
+        };
+        table.insert(controls,
+                     {
+                         type = self.addon.LHAS.ST_DROPDOWN;
+                         label = GetString(KFS_PROFILE_MODE);
+                         tooltip = GetString(KFS_PROFILE_MODE_DESC);
+                         items = function ()
+                             return profileModeItems;
+                         end;
+                         getFunction = function ()
+                             local mode = self.addon:GetProfileMode();
+                             for _, item in ipairs(profileModeItems) do
+                                 if item.data == mode then
+                                     return item.name;
+                                 end;
+                             end;
+                             return profileModeItems[1].name;
+                         end;
+                         setFunction = function (_, _, itemData)
+                             self.addon:SetProfileMode(itemData or "account");
+                         end;
+                     });
+    end;
+
+    table.insert(controls,
+                 {
+                     type = self.addon.LHAS.ST_CHECKBOX;
+                     label = GetString(KFS_ENABLE_SNAP);
+                     tooltip = GetString(KFS_ENABLE_SNAP_DESC);
+                     default = self.addon.defaults.grid.enabled;
+                     getFunction = function ()
+                         return self.addon.savedVars.grid.enabled;
+                     end;
+                     setFunction = function (value)
+                         self.addon.savedVars.grid.enabled = value;
+                         self.addon:ApplySnapSettings();
+                     end;
+                 });
+
+    table.insert(controls,
+                 {
+                     type = self.addon.LHAS.ST_SLIDER;
+                     label = GetString(KFS_SNAP_SIZE);
+                     tooltip = GetString(KFS_SNAP_SIZE_DESC);
+                     min = 2;
+                     max = 128;
+                     step = 1;
+                     default = self.addon.defaults.grid.size;
+                     getFunction = function ()
+                         return self.addon.savedVars.grid.size;
+                     end;
+                     setFunction = function (value)
+                         self.addon.savedVars.grid.size = value;
+                         self.addon:ApplySnapSettings();
+                     end;
+                 });
+
+    table.insert(controls,
+                 {
+                     type = self.addon.LHAS.ST_CHECKBOX;
+                     label = GetString(KFS_ENABLE_BUFF_ANIMATIONS);
+                     tooltip = GetString(KFS_ENABLE_BUFF_ANIMATIONS_DESC);
+                     default = self.addon.defaults.buffAnimationsEnabled;
+                     getFunction = function ()
+                         return self.addon.savedVars.buffAnimationsEnabled;
+                     end;
+                     setFunction = function (value)
+                         self.addon.savedVars.buffAnimationsEnabled = value;
+                         self.addon:UpdateBuffAnimationHook();
+                         ReloadUI("ingame");
+                     end;
+                 });
+
+    table.insert(controls,
+                 {
+                     type = self.addon.LHAS.ST_CHECKBOX;
+                     label = GetString(KFS_ENABLE_GCD);
+                     tooltip = GetString(KFS_ENABLE_GCD_DESC);
+                     default = self.addon.defaults.globalCooldownEnabled;
+                     getFunction = function ()
+                         return self.addon.savedVars.globalCooldownEnabled;
+                     end;
+                     setFunction = function (value)
+                         self.addon.savedVars.globalCooldownEnabled = value;
+                         self.addon:ApplyGlobalCooldownSetting();
+                     end;
+                 });
+
+    table.insert(controls,
+                 {
+                     type = self.addon.LHAS.ST_CHECKBOX;
+                     label = GetString(KFS_PYRAMID_LAYOUT);
+                     tooltip = GetString(KFS_PYRAMID_LAYOUT_DESC);
+                     default = self.addon.defaults.pyramidLayoutEnabled;
+                     getFunction = function ()
+                         return self.addon.savedVars.pyramidLayoutEnabled;
+                     end;
+                     setFunction = function (value)
+                         self.addon.savedVars.pyramidLayoutEnabled = value;
+                         self.addon:ApplyAllPositions();
+                     end;
+                 });
+
+    table.insert(controls,
+                 {
+                     type = self.addon.LHAS.ST_CHECKBOX;
+                     label = GetString(KFS_ALWAYS_EXPANDED_BARS);
+                     tooltip = GetString(KFS_ALWAYS_EXPANDED_BARS_DESC);
+                     default = self.addon.defaults.alwaysExpandedBars;
+                     getFunction = function ()
+                         return self.addon.savedVars.alwaysExpandedBars;
+                     end;
+                     setFunction = function (value)
+                         self.addon.savedVars.alwaysExpandedBars = value;
+                         if KFS_AttributeScaler then
+                             KFS_AttributeScaler:SetAlwaysExpanded(value);
+                         end;
+                     end;
+                 });
+
+    table.insert(controls,
+                 {
+                     type = self.addon.LHAS.ST_BUTTON;
+                     label = GetString(KFS_RESET_ALL_DESC);
+                     tooltip = GetString(KFS_RESET_ALL_DESC);
+                     buttonText = GetString(KFS_RESET_ALL);
+                     clickHandler = function ()
+                         self.addon:ResetPositions();
+                     end;
+                 });
+    settings:AddSettings(controls);
+
+    settings:AddSetting(
+        {
+            type = self.addon.LHAS.ST_SECTION;
+            label = GetString(KFS_SECTION_CONTROLS);
+        });
+    self.settingsPanel = settings;
+    self.addon.settingsPanel = settings;
+    for _, panel in ipairs(self.addon.panels) do
+        self:AddPanelSetting(panel);
+    end;
+end;
+
+KFS_SettingsController = SettingsController;
+

@@ -1,7 +1,3 @@
-local function isConsole()
-    return IsConsoleUI();
-end;
-
 local AttributeScaler = KFS_AttributeScaler;
 
 local definitions =
@@ -188,7 +184,7 @@ local definitions =
         label = KFS_LABEL_LOOT_HISTORY;
         width = 280;
         height = 400;
-        condition = isConsole;
+        condition = ZO_IsConsoleUI;
         anchorPoint = BOTTOMLEFT;
         anchorRelativePoint = BOTTOMLEFT;
         postApply = function (control)
@@ -212,7 +208,7 @@ local definitions =
         id = "tutorials";
         controlName = "ZO_TutorialHudInfoTipGamepad";
         label = KFS_LABEL_TUTORIALS;
-        condition = isConsole;
+        condition = ZO_IsConsoleUI;
     };
     {
         id = "alerts";
@@ -282,8 +278,8 @@ local definitions =
         id = "playerHealth";
         controlName = "ZO_PlayerAttributeHealth";
         label = KFS_LABEL_PLAYER_HEALTH;
-        width = 300;
-        height = 60;
+        width = 237;
+        height = 23;
         scaleApply = function (panel, scale)
             AttributeScaler:Apply(panel, scale);
         end;
@@ -292,8 +288,8 @@ local definitions =
         id = "playerMagicka";
         controlName = "ZO_PlayerAttributeMagicka";
         label = KFS_LABEL_PLAYER_MAGICKA;
-        width = 300;
-        height = 60;
+        width = 237;
+        height = 23;
         scaleApply = function (panel, scale)
             AttributeScaler:Apply(panel, scale);
         end;
@@ -302,8 +298,8 @@ local definitions =
         id = "playerStamina";
         controlName = "ZO_PlayerAttributeStamina";
         label = KFS_LABEL_PLAYER_STAMINA;
-        width = 300;
-        height = 60;
+        width = 237;
+        height = 23;
         scaleApply = function (panel, scale)
             AttributeScaler:Apply(panel, scale);
         end;
@@ -312,8 +308,8 @@ local definitions =
         id = "playerWerewolf";
         controlName = "ZO_PlayerAttributeWerewolf";
         label = KFS_LABEL_PLAYER_WEREWOLF;
-        width = 300;
-        height = 60;
+        width = 228;
+        height = 12;
         condition = function ()
             return GetControl("ZO_PlayerAttributeWerewolf") ~= nil;
         end;
@@ -325,8 +321,8 @@ local definitions =
         id = "playerMount";
         controlName = "ZO_PlayerAttributeMountStamina";
         label = KFS_LABEL_PLAYER_MOUNT;
-        width = 300;
-        height = 60;
+        width = 228;
+        height = 12;
         condition = function ()
             return GetControl("ZO_PlayerAttributeMountStamina") ~= nil;
         end;
@@ -338,8 +334,8 @@ local definitions =
         id = "playerSiege";
         controlName = "ZO_PlayerAttributeSiegeHealth";
         label = KFS_LABEL_PLAYER_SIEGE;
-        width = 300;
-        height = 60;
+        width = 228;
+        height = 12;
         condition = function ()
             return GetControl("ZO_PlayerAttributeSiegeHealth") ~= nil;
         end;
