@@ -1965,7 +1965,7 @@ function KhajiitFengShui:OnAddOnLoaded(event, addonName)
     self:ApplyGlobalCooldownSetting();
 
     -- Hook boss bar to hide it if disabled
-    if self.savedVars.bossBarEnabled then
+    if BOSS_BAR then
         local bossBarEnabled = self.savedVars.bossBarEnabled;
         local RefreshBossHealthBar = function (bossBarSelf, smoothAnimate)
             local totalHealth = 0;
