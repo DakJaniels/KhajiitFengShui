@@ -119,18 +119,6 @@ local function getStatTypeForControl(control)
     return nil;
 end;
 
----Gets power type for a control
----@param control userdata
----@return integer?
-local function getPowerTypeForControl(control)
-    for powerType, expectedControl in pairs(POWER_TYPE_TO_CONTROL) do
-        if expectedControl == control then
-            return powerType;
-        end;
-    end;
-    return nil;
-end;
-
 ---Checks if control uses shrink/expand module
 ---@param control userdata
 ---@return boolean

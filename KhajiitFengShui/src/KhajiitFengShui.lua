@@ -154,7 +154,6 @@ local LCA;
 ---@type LibHarvensAddonSettings?
 local LHAS;
 
-local wm = GetWindowManager();
 local em = GetEventManager();
 local sceneManager = SCENE_MANAGER;
 local SecurePostHook = SecurePostHook;
@@ -412,33 +411,31 @@ function KhajiitFengShui:RefreshPanelState(panel)
         return;
     end;
 
-    local unlocked = self:IsPanelUnlocked(panel);
-    local shouldGamepadMove = false;
-    local isActive = false;
-    if self.editModeActive then
-        shouldGamepadMove = self.editModeFocusId ~= nil and panel.definition.id == self.editModeFocusId;
-        isActive = panel.definition.id == self.editModeFocusId;
-    else
-        shouldGamepadMove = self.activePanelId ~= nil and panel.definition.id == self.activePanelId;
-        isActive = panel.definition.id == self.activePanelId;
-    end;
+    -- Determine active panel ID based on current mode
+    local activePanelId = self.editModeActive and self.editModeFocusId or self.activePanelId;
+    local isActive = panel.definition.id == activePanelId;
+    local shouldGamepadMove = activePanelId ~= nil and isActive;
 
+    -- Update lock state
+    local unlocked = self:IsPanelUnlocked(panel);
     panel.handler:ToggleLock(not unlocked);
+
+    -- Update gamepad move state if changed
     if panel.gamepadActive ~= shouldGamepadMove then
         panel.handler:ToggleGamepadMove(shouldGamepadMove, 10000);
         panel.gamepadActive = shouldGamepadMove;
     end;
 
+    -- Update overlay visibility and highlight
     if panel.overlay then
         panel.overlay:SetHidden(not self:IsPanelVisible(panel));
         PanelUtils.setOverlayHighlight(panel, isActive);
     end;
 
+    -- Update label visibility
     if panel.label then
-        local showLabel = false;
-        if self:IsPanelVisible(panel) then
-            showLabel = self.savedVars.showAllLabels or isActive;
-        end;
+        local isPanelVisible = self:IsPanelVisible(panel);
+        local showLabel = isPanelVisible and (self.savedVars.showAllLabels or isActive);
         panel.label:SetHidden(not showLabel);
     end;
 end;
@@ -1060,6 +1057,19 @@ function KhajiitFengShui:EnsureKeybindDescriptor()
                 addon:CycleFocusedPanel(1);
             end;
         };
+        {
+            name = function ()
+                return GetString(KFS_KEYBIND_TOGGLE_LABELS);
+            end;
+            keybind = "UI_SHORTCUT_QUATERNARY";
+            alignment = KEYBIND_STRIP_ALIGN_RIGHT;
+            visible = function ()
+                return IsInGamepadPreferredMode() and addon:IsEditModeActive();
+            end;
+            callback = function ()
+                addon:ToggleLabels();
+            end;
+        };
     };
 end;
 
@@ -1371,6 +1381,23 @@ function KhajiitFengShui:ToggleEditMode()
     self:SetEditModeActive(not self.editModeActive);
 end;
 
+---Toggles label visibility
+function KhajiitFengShui:ToggleLabels()
+    if not self.savedVars then
+        return;
+    end;
+
+    if not self:IsEditModeActive() then
+        return;
+    end;
+
+    self.savedVars.showAllLabels = not self.savedVars.showAllLabels;
+    local status = self.savedVars.showAllLabels and "all labels visible" or "only active label visible";
+    CHAT_ROUTER:AddSystemMessage(string.format("[KhajiitFengShui] Labels: %s", status));
+
+    self:RefreshAllPanels();
+end;
+
 ---Resets all positions and scales
 function KhajiitFengShui:ResetPositions()
     local preservePyramid = self.savedVars.pyramidLayoutEnabled;
@@ -1508,13 +1535,11 @@ function KhajiitFengShui:ApplyPyramidLayout()
                          return;
                      end;
 
-                     local healthWidth = getExpectedBarWidth(healthPanel, healthScale);
-                     local magickaWidth = getExpectedBarWidth(magickaPanel, magickaScale);
-                     local staminaWidth = getExpectedBarWidth(staminaPanel, staminaScale);
+                    local healthWidth = getExpectedBarWidth(healthPanel, healthScale);
+                    local magickaWidth = getExpectedBarWidth(magickaPanel, magickaScale);
+                    local staminaWidth = getExpectedBarWidth(staminaPanel, staminaScale);
 
-                     local healthHeight = getExpectedBarHeight(healthPanel, healthScale);
-                     local magickaHeight = getExpectedBarHeight(magickaPanel, magickaScale);
-                     local staminaHeight = getExpectedBarHeight(staminaPanel, staminaScale);
+                    local healthHeight = getExpectedBarHeight(healthPanel, healthScale);
 
                      local screenWidth = GuiRoot:GetWidth();
                      local screenHeight = GuiRoot:GetHeight();

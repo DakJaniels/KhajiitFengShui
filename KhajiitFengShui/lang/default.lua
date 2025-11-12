@@ -30,6 +30,7 @@ local strings =
     KFS_KEYBIND_EXIT_EDIT_MODE = "Exit Edit Mode";
     KFS_KEYBIND_PREVIOUS_PANEL = "Previous Panel";
     KFS_KEYBIND_NEXT_PANEL = "Next Panel";
+    KFS_KEYBIND_TOGGLE_LABELS = "Toggle Labels";
     KFS_EDIT_MODE_HINT = "Right Stick moves, LB/RB or D-Pad cycles panels, B exits.";
     KFS_SECTION_CONTROLS = "Individual Controls";
     KFS_MOVE_BUTTON = "Move";

@@ -36,11 +36,7 @@ function EditModeController:Initialize()
             return;
         end;
 
-        self.addon.savedVars.showAllLabels = not self.addon.savedVars.showAllLabels;
-        local status = self.addon.savedVars.showAllLabels and "all labels visible" or "only active label visible";
-        CHAT_ROUTER:AddSystemMessage(string.format("[KhajiitFengShui] Labels: %s", status));
-
-        self.addon:RefreshAllPanels();
+        self.addon:ToggleLabels();
     end;
 end;
 
