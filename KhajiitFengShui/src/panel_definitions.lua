@@ -374,9 +374,7 @@ local definitions =
         id = "buffSelf";
         controlName = "ZO_BuffDebuffTopLevelSelfContainer";
         label = KFS_LABEL_BUFF_SELF;
-        width = function (control)
-            return control:GetWidth() or 420;
-        end;
+        width = 420;
         height = 100;
         anchorPoint = CENTER;
         anchorRelativePoint = CENTER;
@@ -388,9 +386,7 @@ local definitions =
         id = "buffTarget";
         controlName = "ZO_BuffDebuffTopLevelTargetContainer";
         label = KFS_LABEL_BUFF_TARGET;
-        width = function (control)
-            return control:GetWidth() or 420;
-        end;
+        width = 420;
         height = 100;
         anchorPoint = CENTER;
         anchorRelativePoint = CENTER;
