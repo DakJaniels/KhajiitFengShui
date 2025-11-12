@@ -16,7 +16,7 @@ jobs:
       - name: Create zip archive
         run: |
           cd KhajiitFengShui
-          zip -r ../KhajiitFengShui.zip .
+          zip -r ../KhajiitFengShui.zip *
           cd ..
       
       - name: Upload release asset
