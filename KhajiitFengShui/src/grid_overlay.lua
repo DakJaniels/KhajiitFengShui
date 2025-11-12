@@ -1,7 +1,7 @@
 ---@class KFS_GridOverlay
----@field control userdata|nil Top-level overlay window control
----@field verticalLinePool table|nil ZO_ObjectPool for vertical lines
----@field horizontalLinePool table|nil ZO_ObjectPool for horizontal lines
+---@field control userdata Top-level overlay window control
+---@field verticalLinePool table ZO_ObjectPool for vertical lines
+---@field horizontalLinePool table ZO_ObjectPool for horizontal lines
 ---@field activeVerticalLines table<any, any> Map of active vertical line keys
 ---@field activeHorizontalLines table<any, any> Map of active horizontal line keys
 ---@field size number Current grid size in pixels
@@ -20,7 +20,7 @@ local GRID_COLOR =
 
 ---Creates line factory function
 ---@param parentControl userdata
----@return function
+---@return fun():LineControl
 local function CreateLineFactory(parentControl)
     return function ()
         local line = wm:CreateControl(nil, parentControl, CT_LINE);
@@ -34,10 +34,25 @@ local function CreateLineFactory(parentControl)
 end;
 
 ---Resets line to hidden state
----@param line userdata
+---@param line LineControl
 local function ResetLine(line)
     line:SetHidden(true);
     line:ClearAnchors();
+end;
+
+---Releases all active line keys tracked by a pool
+---@param pool ZO_ObjectPool|nil
+---@param activeLineMap table<any, any>?
+local function ReleaseActiveLines(pool, activeLineMap)
+    if not pool or not activeLineMap then
+        return;
+    end;
+
+    for lineKey in IterateTables(pairs, activeLineMap) do
+        pool:ReleaseObject(lineKey);
+    end;
+
+    ZO_ClearTable(activeLineMap);
 end;
 
 ---Creates new GridOverlay
@@ -85,20 +100,13 @@ function GridOverlay:UpdateLines(size)
         return;
     end;
 
-    for _, lineKey in pairs(self.activeVerticalLines) do
-        self.verticalLinePool:ReleaseObject(lineKey);
-    end;
-    ZO_ClearTable(self.activeVerticalLines);
-
-    for _, lineKey in pairs(self.activeHorizontalLines) do
-        self.horizontalLinePool:ReleaseObject(lineKey);
-    end;
-    ZO_ClearTable(self.activeHorizontalLines);
+    ReleaseActiveLines(self.verticalLinePool, self.activeVerticalLines);
+    ReleaseActiveLines(self.horizontalLinePool, self.activeHorizontalLines);
 
     local rootWidth = GuiRoot:GetWidth() or 0;
     local rootHeight = GuiRoot:GetHeight() or 0;
 
-    local verticalCount = math.floor(rootWidth / size);
+    local verticalCount = zo_floor(rootWidth / size);
     for i = 0, verticalCount do
         local offsetX = zo_round(i * size);
         local line, lineKey = self.verticalLinePool:AcquireObject();
@@ -157,4 +165,4 @@ function GridOverlay:Refresh(visible, size)
     self:UpdateLines(size);
 end;
 
-KFS_GridOverlay = GridOverlay;
+KhajiitFengShui.GridOverlay = GridOverlay;

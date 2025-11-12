@@ -32,7 +32,9 @@ function EditModeController:Initialize()
         end;
 
         if not self:IsEditModeActive() then
-            CHAT_ROUTER:AddSystemMessage("[KhajiitFengShui] Label toggle only works in edit mode. Use /kfsedit to enter edit mode");
+            CHAT_ROUTER:AddSystemMessage(
+                "[KhajiitFengShui] Label toggle only works in edit mode. Use /kfsedit to enter edit mode"
+            );
             return;
         end;
 
@@ -65,4 +67,4 @@ function EditModeController:ToggleEditMode()
     self.addon:ToggleEditMode();
 end;
 
-KFS_EditModeController = EditModeController;
+KhajiitFengShui.EditModeController = EditModeController;

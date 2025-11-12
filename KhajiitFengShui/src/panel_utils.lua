@@ -81,6 +81,35 @@ local function getAnchorPointY(point, top, height, rootHeight)
     return top;
 end;
 
+---Safely gets control owner object, returns nil for custom controls
+---@param control userdata?
+---@return userdata? owner
+local function getControlOwnerSafe(control)
+    if not control then
+        return nil;
+    end;
+
+    -- Custom controls don't have owner objects, check by name
+    local controlName = control:GetName();
+    if controlName and (controlName:find("^KhajiitFengShui_") or controlName:find("^KhajiitFengShuiMover_")) then
+        return nil;
+    end;
+
+    -- For game controls, try to get owner object
+    -- Check if control has GetOwnerObject method first
+    if control.GetOwnerObject then
+        return control:GetOwnerObject();
+    end;
+
+    -- Fallback to global function if available
+    if ZO_GetControlOwnerObject then
+        local owner = ZO_GetControlOwnerObject(control);
+        return owner;
+    end;
+
+    return nil;
+end;
+
 ---Computes relative offsets between control and GuiRoot
 ---@param control userdata
 ---@param point integer
@@ -93,7 +122,7 @@ end;
 local function computeRelativeOffsets(control, point, relativePoint, left, top, definition)
     local rootWidth = GuiRoot:GetWidth() or 0;
     local rootHeight = GuiRoot:GetHeight() or 0;
-    local owner = ZO_GetControlOwnerObject(control);
+    local owner = getControlOwnerSafe(control);
 
     ---@param currentSize number?
     ---@param fallbackValue any
@@ -169,7 +198,7 @@ function PanelUtils.applySizing(control, width, height)
         return;
     end;
 
-    local owner = ZO_GetControlOwnerObject(control);
+    local owner = getControlOwnerSafe(control);
 
     if width ~= nil then
         local resolvedWidth = ZO_Eval(width, control, owner);
@@ -245,7 +274,14 @@ end;
 ---@return userdata label
 function PanelUtils.createOverlay(panelId, control)
     local windowManager = GetWindowManager();
-    local overlay = windowManager:CreateTopLevelWindow(string.format("KhajiitFengShuiMover_%s", panelId));
+    local overlayName = string.format("KhajiitFengShuiMover_%s", panelId);
+    local overlay = _G[overlayName];
+    local created = false;
+    if not overlay then
+        overlay = windowManager:CreateTopLevelWindow(overlayName);
+        created = true;
+    end;
+
     overlay:SetMouseEnabled(true);
     overlay:SetMovable(true);
     overlay:SetClampedToScreen(true);
@@ -253,9 +289,14 @@ function PanelUtils.createOverlay(panelId, control)
     overlay:SetDrawLayer(DL_OVERLAY);
     overlay:SetDrawTier(DT_HIGH);
     overlay:SetDrawLevel(5);
+    overlay:ClearAnchors();
     overlay:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, control:GetLeft(), control:GetTop());
 
-    local backdrop = windowManager:CreateControl(nil, overlay, CT_BACKDROP);
+    local backdrop = overlay.backdrop;
+    if not backdrop then
+        backdrop = windowManager:CreateControl(nil, overlay, CT_BACKDROP);
+        overlay.backdrop = backdrop;
+    end;
     backdrop:SetAnchorFill();
     backdrop:SetCenterColor(0.05, 0.6, 0.9, 0.25);
     backdrop:SetEdgeColor(0.05, 0.6, 0.9, 0.9);
@@ -264,21 +305,30 @@ function PanelUtils.createOverlay(panelId, control)
     backdrop:SetDrawLevel(2);
     backdrop:SetDrawTier(DT_LOW);
 
-    overlay.backdrop = backdrop;
-
-    local label = windowManager:CreateControl(nil, overlay, CT_LABEL);
+    local label = overlay.label;
+    if not label then
+        label = windowManager:CreateControl(nil, overlay, CT_LABEL);
+        overlay.label = label;
+    end;
     label:SetFont("ZoFontGamepadBold27");
     label:SetHorizontalAlignment(TEXT_ALIGN_CENTER);
     label:SetVerticalAlignment(TEXT_ALIGN_BOTTOM);
+    label:ClearAnchors();
     label:SetAnchor(BOTTOM, overlay, BOTTOM, 0, -4);
     label:SetColor(1, 1, 0, 1);
     label:SetDrawLayer(DL_OVERLAY);
     label:SetDrawLevel(6);
     label:SetDrawTier(DT_HIGH);
     label:SetMouseEnabled(false);
-    label:SetText("0, 0");
+    if created then
+        label:SetText("0, 0");
+    end;
 
-    local labelBackground = windowManager:CreateControl(nil, label, CT_BACKDROP);
+    local labelBackground = overlay.labelBackground;
+    if not labelBackground then
+        labelBackground = windowManager:CreateControl(nil, label, CT_BACKDROP);
+        overlay.labelBackground = labelBackground;
+    end;
     labelBackground:SetAnchorFill();
     labelBackground:SetCenterColor(0, 0, 0, 0.85);
     labelBackground:SetEdgeColor(0, 0, 0, 0);
@@ -445,4 +495,4 @@ function PanelUtils.applyControlAnchorFromPosition(panel, position, gridSize)
     anchor:Set(control);
 end;
 
-KFS_PanelUtils = PanelUtils;
+KhajiitFengShui.PanelUtils = PanelUtils;

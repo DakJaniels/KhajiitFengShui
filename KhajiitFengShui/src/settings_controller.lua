@@ -1,11 +1,11 @@
 ---@class KFS_SettingsController
 ---@field addon KhajiitFengShui Reference to main addon instance
----@field settingsPanel table|nil LibHarvensAddonSettings panel instance
+---@field settingsPanel table LibHarvensAddonSettings panel instance
 local SettingsController = {};
 SettingsController.__index = SettingsController;
 
-local PanelUtils = KFS_PanelUtils;
-local PanelDefinitions = KFS_PanelDefinitions;
+local PanelUtils = KhajiitFengShui.PanelUtils;
+local PanelDefinitions = KhajiitFengShui.PanelDefinitions;
 
 local SCALE_MIN_PERCENT = 50;
 local SCALE_MAX_PERCENT = 150;
@@ -56,22 +56,52 @@ function SettingsController:AddPanelSetting(panel)
     if not panel.sectionAdded then
         self.settingsPanel:AddSetting(
             {
-                type = self.addon.LHAS.ST_SECTION;
+                type = LibHarvensAddonSettings.ST_SECTION;
                 label = PanelDefinitions.getLabel(panel.definition);
             });
         panel.sectionAdded = true;
     end;
 
+    if not panel.enableSettingAdded then
+        self.settingsPanel:AddSetting(
+            {
+                type = LibHarvensAddonSettings.ST_CHECKBOX;
+                label = GetString(KFS_ENABLE_PANEL);
+                tooltip = GetString(KFS_ENABLE_PANEL_DESC);
+                default = true;
+                getFunction = function ()
+                    return self.addon:IsMoverEnabled(panel.definition.id);
+                end;
+                setFunction = function (value)
+                    self.addon:SetMoverEnabled(panel.definition.id, value);
+                    self.addon:RefreshSettingsAvailability();
+                end;
+                disable = function ()
+                    local isPyramidBar = panel.definition.id == "playerHealth"
+                        or panel.definition.id == "playerMagicka"
+                        or panel.definition.id == "playerStamina";
+                    if isPyramidBar and self.addon.savedVars.pyramidLayoutEnabled then
+                        return true;
+                    end;
+                    return false;
+                end;
+            });
+        panel.enableSettingAdded = true;
+    end;
+
     if not panel.scaleSettingAdded then
         self.settingsPanel:AddSetting(
             {
-                type = self.addon.LHAS.ST_SLIDER;
+                type = LibHarvensAddonSettings.ST_SLIDER;
                 label = GetString(KFS_SCALE_SLIDER_LABEL);
                 tooltip = GetString(KFS_SCALE_SLIDER_DESC);
                 min = SCALE_MIN_PERCENT;
                 max = SCALE_MAX_PERCENT;
                 step = SCALE_STEP_PERCENT;
                 default = zo_roundToNearest((panel.defaultScale or DEFAULT_SCALE) * 100, SCALE_STEP_PERCENT);
+                disable = function ()
+                    return not self.addon:IsMoverEnabled(panel.definition.id);
+                end;
                 getFunction = function ()
                     return self.addon:GetPanelScalePercent(panel.definition.id);
                 end;
@@ -85,10 +115,12 @@ function SettingsController:AddPanelSetting(panel)
     if not panel.moveSettingAdded then
         self.settingsPanel:AddSetting(
             {
-                type = self.addon.LHAS.ST_BUTTON;
+                type = LibHarvensAddonSettings.ST_BUTTON;
                 label = GetString(KFS_MOVE_BUTTON);
                 tooltip = function ()
-                    local isPyramidBar = panel.definition.id == "playerHealth" or panel.definition.id == "playerMagicka" or panel.definition.id == "playerStamina";
+                    local isPyramidBar = panel.definition.id == "playerHealth"
+                        or panel.definition.id == "playerMagicka"
+                        or panel.definition.id == "playerStamina";
                     if isPyramidBar and self.addon.savedVars.pyramidLayoutEnabled then
                         return GetString(KFS_MOVE_BUTTON_PYRAMID_DESC);
                     else
@@ -97,11 +129,16 @@ function SettingsController:AddPanelSetting(panel)
                 end;
                 buttonText = GetString(KFS_MOVE_BUTTON);
                 disable = function ()
+                    if not self.addon:IsMoverEnabled(panel.definition.id) then
+                        return true;
+                    end;
                     if panel.handler == nil then
                         return true;
                     end;
                     -- Disable move button for pyramid bars when pyramid layout is enabled
-                    local isPyramidBar = panel.definition.id == "playerHealth" or panel.definition.id == "playerMagicka" or panel.definition.id == "playerStamina";
+                    local isPyramidBar = panel.definition.id == "playerHealth"
+                        or panel.definition.id == "playerMagicka"
+                        or panel.definition.id == "playerStamina";
                     return isPyramidBar and self.addon.savedVars.pyramidLayoutEnabled;
                 end;
                 clickHandler = function ()
@@ -116,37 +153,52 @@ function SettingsController:AddPanelSetting(panel)
     end;
 end;
 
----Creates settings menu
-function SettingsController:CreateSettingsMenu()
-    if not self.addon.LHAS then
+function SettingsController:RefreshDynamicControls()
+    if not self.settingsPanel then
         return;
     end;
 
-    local settings = self.addon.LHAS:AddAddon(GetString(KFS_SETTINGS),
-                                              {
-                                                  allowDefaults = true;
-                                                  defaultsFunction = function ()
-                                                      self.addon:SetProfileMode(self.addon.defaults.profileMode, true);
-                                                      self.addon.savedVars.grid.enabled = self.addon.defaults.grid.enabled;
-                                                      self.addon.savedVars.grid.size = self.addon.defaults.grid.size;
-                                                      self.addon:ResetPositions();
-                                                      self.addon:ApplySnapSettings();
-                                                      self.addon.savedVars.buffAnimationsEnabled = self.addon.defaults.buffAnimationsEnabled;
-                                                      self.addon:UpdateBuffAnimationHook();
-                                                      self.addon.savedVars.globalCooldownEnabled = self.addon.defaults.globalCooldownEnabled;
-                                                      self.addon:ApplyGlobalCooldownSetting();
-                                                      self.addon.activePanelId = nil;
-                                                      self.addon:RefreshAllPanels();
-                                                      self.addon:RefreshGridOverlay();
-                                                  end;
-                                              });
+    local lhas = self.addon and LibHarvensAddonSettings;
+    if self.settingsPanel.UpdateControls and lhas and lhas.labelPool then
+        self.settingsPanel:UpdateControls();
+    elseif self.settingsPanel.RefreshSettings then
+        self.settingsPanel:RefreshSettings();
+    end;
+end;
+
+---Creates settings menu
+function SettingsController:CreateSettingsMenu()
+    if not LibHarvensAddonSettings then
+        return;
+    end;
+
+    local settings = LibHarvensAddonSettings:AddAddon(GetString(KFS_SETTINGS),
+                                                      {
+                                                          allowDefaults = true;
+                                                          defaultsFunction = function ()
+                                                              self.addon:SetProfileMode(self.addon.defaults.profileMode, true);
+                                                              self.addon.savedVars.grid.enabled = self.addon.defaults.grid.enabled;
+                                                              self.addon.savedVars.grid.size = self.addon.defaults.grid.size;
+                                                              self.addon:ResetPositions();
+                                                              self.addon:ApplySnapSettings();
+                                                              self.addon.savedVars.buffAnimationsEnabled = self.addon.defaults.buffAnimationsEnabled;
+                                                              self.addon:UpdateBuffAnimationHook();
+                                                              self.addon.savedVars.globalCooldownEnabled = self.addon.defaults.globalCooldownEnabled;
+                                                              self.addon:ApplyGlobalCooldownSetting();
+                                                              self.addon.savedVars.bossBarEnabled = self.addon.defaults.bossBarEnabled;
+                                                              self.addon.savedVars.reticleEnabled = self.addon.defaults.reticleEnabled;
+                                                              self.addon.activePanelId = nil;
+                                                              self.addon:RefreshAllPanels();
+                                                              self.addon:RefreshGridOverlay();
+                                                          end;
+                                                      });
 
     local controls = {};
     local controlCount = 1;
 
     controls[controlCount] =
     {
-        type = self.addon.LHAS.ST_LABEL;
+        type = LibHarvensAddonSettings.ST_LABEL;
         label = GetString(KFS_SETTINGS_DESC);
     };
     controlCount = controlCount + 1;
@@ -154,7 +206,7 @@ function SettingsController:CreateSettingsMenu()
     if ZO_IsConsoleUI() then
         controls[controlCount] =
         {
-            type = self.addon.LHAS.ST_BUTTON;
+            type = LibHarvensAddonSettings.ST_BUTTON;
             label = function ()
                 local currentMode = GetProfileModeLabel(self.addon:GetProfileMode());
                 return string.format("%s: %s", GetString(KFS_PROFILE_MODE), currentMode);
@@ -171,7 +223,7 @@ function SettingsController:CreateSettingsMenu()
     else
         controls[controlCount] =
         {
-            type = self.addon.LHAS.ST_DROPDOWN;
+            type = LibHarvensAddonSettings.ST_DROPDOWN;
             label = GetString(KFS_PROFILE_MODE);
             tooltip = GetString(KFS_PROFILE_MODE_DESC_RELOAD);
             default = GetString(KFS_PROFILE_ACCOUNT);
@@ -204,7 +256,7 @@ function SettingsController:CreateSettingsMenu()
 
     controls[controlCount] =
     {
-        type = self.addon.LHAS.ST_CHECKBOX;
+        type = LibHarvensAddonSettings.ST_CHECKBOX;
         label = GetString(KFS_ENABLE_SNAP);
         tooltip = GetString(KFS_ENABLE_SNAP_DESC);
         default = self.addon.defaults.grid.enabled;
@@ -220,7 +272,7 @@ function SettingsController:CreateSettingsMenu()
 
     controls[controlCount] =
     {
-        type = self.addon.LHAS.ST_SLIDER;
+        type = LibHarvensAddonSettings.ST_SLIDER;
         label = GetString(KFS_SNAP_SIZE);
         tooltip = GetString(KFS_SNAP_SIZE_DESC);
         min = 2;
@@ -239,7 +291,7 @@ function SettingsController:CreateSettingsMenu()
 
     controls[controlCount] =
     {
-        type = self.addon.LHAS.ST_CHECKBOX;
+        type = LibHarvensAddonSettings.ST_CHECKBOX;
         label = GetString(KFS_ENABLE_BUFF_ANIMATIONS);
         tooltip = GetString(KFS_ENABLE_BUFF_ANIMATIONS_DESC_RELOAD);
         default = self.addon.defaults.buffAnimationsEnabled;
@@ -256,7 +308,7 @@ function SettingsController:CreateSettingsMenu()
 
     controls[controlCount] =
     {
-        type = self.addon.LHAS.ST_CHECKBOX;
+        type = LibHarvensAddonSettings.ST_CHECKBOX;
         label = GetString(KFS_ENABLE_GCD);
         tooltip = GetString(KFS_ENABLE_GCD_DESC);
         default = self.addon.defaults.globalCooldownEnabled;
@@ -272,7 +324,39 @@ function SettingsController:CreateSettingsMenu()
 
     controls[controlCount] =
     {
-        type = self.addon.LHAS.ST_CHECKBOX;
+        type = LibHarvensAddonSettings.ST_CHECKBOX;
+        label = GetString(KFS_ENABLE_BOSS_BAR);
+        tooltip = GetString(KFS_ENABLE_BOSS_BAR_DESC_RELOAD);
+        default = self.addon.defaults.bossBarEnabled;
+        getFunction = function ()
+            return self.addon.savedVars.bossBarEnabled;
+        end;
+        setFunction = function (value)
+            self.addon.savedVars.bossBarEnabled = value;
+            ReloadUI("ingame");
+        end;
+    };
+    controlCount = controlCount + 1;
+
+    controls[controlCount] =
+    {
+        type = LibHarvensAddonSettings.ST_CHECKBOX;
+        label = GetString(KFS_ENABLE_RETICLE);
+        tooltip = GetString(KFS_ENABLE_RETICLE_DESC_RELOAD);
+        default = self.addon.defaults.reticleEnabled;
+        getFunction = function ()
+            return self.addon.savedVars.reticleEnabled;
+        end;
+        setFunction = function (value)
+            self.addon.savedVars.reticleEnabled = value;
+            ReloadUI("ingame");
+        end;
+    };
+    controlCount = controlCount + 1;
+
+    controls[controlCount] =
+    {
+        type = LibHarvensAddonSettings.ST_CHECKBOX;
         label = GetString(KFS_PYRAMID_LAYOUT);
         tooltip = GetString(KFS_PYRAMID_LAYOUT_DESC);
         default = self.addon.defaults.pyramidLayoutEnabled;
@@ -282,13 +366,19 @@ function SettingsController:CreateSettingsMenu()
         setFunction = function (value)
             self.addon.savedVars.pyramidLayoutEnabled = value;
             self.addon:ApplyAllPositions();
+            if value then
+                self.addon:SetMoverEnabled("playerHealth", true);
+                self.addon:SetMoverEnabled("playerMagicka", true);
+                self.addon:SetMoverEnabled("playerStamina", true);
+            end;
+            self.addon:RefreshSettingsAvailability();
         end;
     };
     controlCount = controlCount + 1;
 
     controls[controlCount] =
     {
-        type = self.addon.LHAS.ST_CHECKBOX;
+        type = LibHarvensAddonSettings.ST_CHECKBOX;
         label = GetString(KFS_ALWAYS_EXPANDED_BARS);
         tooltip = GetString(KFS_ALWAYS_EXPANDED_BARS_DESC_RELOAD);
         default = self.addon.defaults.alwaysExpandedBars;
@@ -304,7 +394,7 @@ function SettingsController:CreateSettingsMenu()
 
     controls[controlCount] =
     {
-        type = self.addon.LHAS.ST_BUTTON;
+        type = LibHarvensAddonSettings.ST_BUTTON;
         label = GetString(KFS_RESET_ALL_DESC);
         tooltip = GetString(KFS_RESET_ALL_DESC);
         buttonText = GetString(KFS_RESET_ALL);
@@ -316,7 +406,7 @@ function SettingsController:CreateSettingsMenu()
 
     settings:AddSetting(
         {
-            type = self.addon.LHAS.ST_SECTION;
+            type = LibHarvensAddonSettings.ST_SECTION;
             label = GetString(KFS_SECTION_CONTROLS);
         });
     self.settingsPanel = settings;
@@ -326,4 +416,4 @@ function SettingsController:CreateSettingsMenu()
     end;
 end;
 
-KFS_SettingsController = SettingsController;
+KhajiitFengShui.SettingsController = SettingsController;

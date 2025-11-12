@@ -1,169 +1,36 @@
 local ADDON_NAME = "KhajiitFengShui";
 local ADDON_VERSION = "1.1.5";
 
----@class KFS_SavedVars
----@field grid { enabled: boolean, size: number }
----@field positions table<string, KFS_Position>
----@field scales table<string, number>
----@field buffAnimationsEnabled boolean
----@field globalCooldownEnabled boolean
----@field pyramidLayoutEnabled boolean
----@field alwaysExpandedBars boolean
----@field pyramidOffset { left: number, top: number }
----@field profileMode string
----@field showAllLabels boolean
-
----@class KFS_Defaults
----@field grid { enabled: boolean, size: number }
----@field positions table
----@field scales table
----@field buffAnimationsEnabled boolean
----@field globalCooldownEnabled boolean
----@field profileMode string
----@field pyramidLayoutEnabled boolean
----@field pyramidOffset { left: number, top: number }
----@field alwaysExpandedBars boolean
----@field showAllLabels boolean
-
----@class KhajiitFengShui
----@field name string Addon name
----@field displayName string Localized display name
----@field version string Version string
----@field savedVars KFS_SavedVars|nil Active saved variables (account or character)
----@field accountSavedVars KFS_SavedVars|nil Account-wide saved variables
----@field characterSavedVars KFS_SavedVars|nil Per-character saved variables
----@field panels KhajiitFengShuiPanel[] All created panel instances
----@field panelLookup table<string, KhajiitFengShuiPanel> Panel ID to panel instance map
----@field definitionLookup table<string, KhajiitFengShuiPanelDefinition>|nil Definition ID to definition map
----@field activePanelId string|nil Currently moving panel ID
----@field editModeFocusId string|nil Panel focused in edit mode
----@field profileMode string|nil "account" or "character"
----@field editModeActive boolean Whether edit mode is active
----@field editModeController KFS_EditModeController|nil Edit mode controller instance
----@field settingsController KFS_SettingsController|nil Settings controller instance
----@field gridOverlay KFS_GridOverlay|nil Grid overlay instance
----@field keybindStripDescriptor table?
----@field keybindStripActive boolean
----@field keybindSceneCallbacks table
----@field keybindSceneGroups table
----@field keybindStripReduced boolean
----@field keybindStripOriginalHeight number?
----@field keybindStripBackgroundOriginalHeight number?
----@field keybindStripBackgroundTextureOriginalHeight number?
----@field keybindStripCenterAdjusted boolean
----@field keybindStripBackgroundWasHidden boolean?
----@field keybindFragmentSceneName string?
----@field keybindScenes table?
----@field actionLayerName string?
----@field actionLayerActive boolean
----@field editModeHintShown boolean
----@field compassHookRegistered boolean
----@field buffAnimationHookRegistered boolean
----@field globalCooldownActive boolean
----@field groupFrameHooksRegistered boolean
----@field LHAS LibHarvensAddonSettings LibHarvensAddonSettings instance
----@field settingsPanel table|nil Settings panel instance
----@field defaults KFS_Defaults Default configuration values
-local KhajiitFengShui =
-{
-    name = ADDON_NAME;
-    displayName = GetString(KFS_NAME);
-    version = ADDON_VERSION;
-    savedVars = nil;
-    accountSavedVars = nil;
-    characterSavedVars = nil;
-    panels = {};
-    panelLookup = {};
-    activePanelId = nil;
-    editModeFocusId = nil;
-    profileMode = nil;
-    editModeActive = false;
-    editModeController = nil;
-    gridOverlay = nil;
-    keybindStripDescriptor = nil;
-    keybindStripActive = false;
-    keybindSceneCallbacks = {};
-    keybindSceneGroups = {};
-    keybindStripReduced = false;
-    keybindStripOriginalHeight = nil;
-    keybindStripBackgroundOriginalHeight = nil;
-    keybindStripBackgroundTextureOriginalHeight = nil;
-    keybindStripCenterAdjusted = false;
-    keybindStripBackgroundWasHidden = nil;
-    keybindFragmentSceneName = nil;
-    keybindScenes = nil;
-    actionLayerName = nil;
-    actionLayerActive = false;
-    editModeHintShown = false;
-    compassHookRegistered = false;
-    buffAnimationHookRegistered = false;
-    globalCooldownActive = false;
-    groupFrameHooksRegistered = false;
-};
-
-KhajiitFengShui.defaults =
-{
-    grid =
-    {
-        enabled = false;
-        size = 15;
-    };
-    positions = {};
-    scales = {};
-    buffAnimationsEnabled = false;
-    globalCooldownEnabled = false;
-    profileMode = "account";
-    pyramidLayoutEnabled = false;
-    pyramidOffset = { left = 0; top = 0 };
-    alwaysExpandedBars = false;
-    showAllLabels = false;
-};
-
 local SCALE_MIN_PERCENT = 50;
 local SCALE_MAX_PERCENT = 150;
 local SCALE_STEP_PERCENT = 5;
 local DEFAULT_SCALE = 1;
 
----@class LibCombatAlerts
----@field MoveableControl table
----@field EVENT_CONTROL_MOVE_START string
----@field EVENT_CONTROL_MOVE_STOP string
-
----@class LibCombatAlerts_MoveableControl
----@field New fun(control: userdata, options: { color: integer, size: number }): LibCombatAlerts_MoveableControl
----@field ToggleLock fun(self: LibCombatAlerts_MoveableControl, locked: boolean)
----@field ToggleGamepadMove fun(self: LibCombatAlerts_MoveableControl, enabled: boolean, speed: number?)
----@field SetSnap fun(self: LibCombatAlerts_MoveableControl, snapSize: number?)
----@field GetPosition fun(self: LibCombatAlerts_MoveableControl, snapToGrid: boolean?): KFS_Position
----@field GetLeftTopPosition fun(self: LibCombatAlerts_MoveableControl, snapToGrid: boolean?): { left: number, top: number }
----@field UpdatePosition fun(self: LibCombatAlerts_MoveableControl, position: KFS_Position)
----@field RegisterCallback fun(self: LibCombatAlerts_MoveableControl, id: string, event: string, callback: function)
----@field SetCenterHighlightControl fun(self: LibCombatAlerts_MoveableControl, control: userdata)
-
----@class LibHarvensAddonSettings
----@field AddAddon fun(name: string, options: table): table
----@field ST_SECTION integer
----@field ST_SLIDER integer
----@field ST_CHECKBOX integer
----@field ST_BUTTON integer
----@field ST_DROPDOWN integer
----@field ST_LABEL integer
-
----@type LibCombatAlerts?
+---@type LibCombatAlerts
 local LCA;
----@type LibHarvensAddonSettings?
+---@type LibHarvensAddonSettings
 local LHAS;
 
 local em = GetEventManager();
 local sceneManager = SCENE_MANAGER;
 local SecurePostHook = SecurePostHook;
 
-local PanelUtils = KFS_PanelUtils;
-local PanelDefinitions = KFS_PanelDefinitions;
-local GridOverlay = KFS_GridOverlay;
-local EditModeController = KFS_EditModeController;
-local SettingsController = KFS_SettingsController;
+local PanelUtils = KhajiitFengShui.PanelUtils;
+local PanelDefinitions = KhajiitFengShui.PanelDefinitions;
+local GridOverlay = KhajiitFengShui.GridOverlay;
+local EditModeController = KhajiitFengShui.EditModeController;
+local SettingsController = KhajiitFengShui.SettingsController;
+local AttributeScaler = KhajiitFengShui.AttributeScaler;
 
+local ATTRIBUTE_SCALER_PANEL_IDS =
+{
+    playerHealth = true;
+    playerMagicka = true;
+    playerStamina = true;
+    playerWerewolf = true;
+    playerMount = true;
+    playerSiege = true;
+};
 
 ---Builds overlay message with position and scale
 ---@param panel KhajiitFengShuiPanel
@@ -199,6 +66,14 @@ local function EnsureSavedVarStructure(savedVars, defaults)
 
     savedVars.positions = savedVars.positions or {};
     savedVars.scales = savedVars.scales or {};
+    savedVars.disabledPanels = savedVars.disabledPanels or {};
+    if defaults.disabledPanels then
+        for panelId, disabled in pairs(defaults.disabledPanels) do
+            if savedVars.disabledPanels[panelId] == nil then
+                savedVars.disabledPanels[panelId] = disabled;
+            end;
+        end;
+    end;
 
     if savedVars.buffAnimationsEnabled == nil then
         savedVars.buffAnimationsEnabled = defaults.buffAnimationsEnabled or false;
@@ -218,21 +93,29 @@ local function EnsureSavedVarStructure(savedVars, defaults)
     if savedVars.showAllLabels == nil then
         savedVars.showAllLabels = defaults.showAllLabels or false;
     end;
+    if savedVars.bossBarEnabled == nil then
+        savedVars.bossBarEnabled = defaults.bossBarEnabled ~= false;
+    end;
+    if savedVars.reticleEnabled == nil then
+        savedVars.reticleEnabled = defaults.reticleEnabled ~= false;
+    end;
 end;
 
 ---@class KhajiitFengShuiPanel
 ---@field definition KhajiitFengShuiPanelDefinition Panel definition
 ---@field control userdata Game UI control being tracked
----@field overlay userdata|nil Movable overlay window
----@field handler LibCombatAlerts_MoveableControl|nil LibCombatAlerts MoveableControl handler
----@field label userdata|nil Overlay label control
----@field defaultPosition { left: number, top: number }|nil Original position before any moves
+---@field overlay userdata Movable overlay window
+---@field handler LibCombatAlerts.MoveableControl LibCombatAlerts MoveableControl handler
+---@field label userdata Overlay label control
+---@field defaultPosition { left: number, top: number } Original position before any moves
 ---@field defaultScale number Original scale before any changes
----@field gamepadActive boolean|nil Whether gamepad movement is active
----@field sectionAdded boolean|nil Settings section created flag
----@field scaleSettingAdded boolean|nil Scale slider created flag
----@field moveSettingAdded boolean|nil Move button created flag
----@field compassDefaults { baseWidth: number?, baseHeight: number?, leftWidth: number?, rightWidth: number?, labelScale: number?, labelAnchorPoint: integer?, labelAnchorTarget: userdata?, labelAnchorRelativePoint: integer?, labelOffsetX: number?, labelOffsetY: number? }|nil Compass-specific defaults
+---@field gamepadActive boolean Whether gamepad movement is active
+---@field moverEnabled boolean? Whether the mover is currently active
+---@field sectionAdded boolean Settings section created flag
+---@field enableSettingAdded boolean Enable toggle created flag
+---@field scaleSettingAdded boolean Scale slider created flag
+---@field moveSettingAdded boolean Move button created flag
+---@field compassDefaults { baseWidth: number?, baseHeight: number?, leftWidth: number?, rightWidth: number?, labelScale: number?, labelAnchorPoint: integer?, labelAnchorTarget: userdata?, labelAnchorRelativePoint: integer?, labelOffsetX: number?, labelOffsetY: number? } Compass-specific defaults
 
 ---Updates overlay label text
 ---@param panel KhajiitFengShuiPanel
@@ -240,7 +123,6 @@ end;
 local function UpdateOverlayLabel(panel, message)
     PanelUtils.updateOverlayLabel(panel.label, message);
 end;
-
 
 ---Syncs overlay size to control
 ---@param panel KhajiitFengShuiPanel
@@ -271,10 +153,26 @@ function KhajiitFengShui:GetPanelScalePercent(panelId)
     return zo_roundToNearest(self:GetPanelScale(panelId) * 100, SCALE_STEP_PERCENT);
 end;
 
+---Checks whether the addon should manage a panel
+---@param panelId string
+---@return boolean
+function KhajiitFengShui:IsMoverEnabled(panelId)
+    if not panelId then
+        return true;
+    end;
+
+    local savedVars = self.savedVars;
+    if not (savedVars and savedVars.disabledPanels) then
+        return true;
+    end;
+
+    return savedVars.disabledPanels[panelId] ~= true;
+end;
+
 ---Applies scale to a panel
 ---@param panel KhajiitFengShuiPanel?
 function KhajiitFengShui:ApplyPanelScale(panel)
-    if not panel then
+    if not panel or not self:IsMoverEnabled(panel.definition.id) then
         return;
     end;
     PanelUtils.applyScale(panel, self:GetPanelScale(panel.definition.id));
@@ -305,14 +203,19 @@ function KhajiitFengShui:SetPanelScale(panelId, scale)
         return;
     end;
 
-    self:ApplyPanelScale(panel);
+    if self:IsMoverEnabled(panelId) then
+        self:ApplyPanelScale(panel);
+    end;
     if panel.definition and panel.definition.postApply then
         local hasCustomPosition = self.savedVars.positions and self.savedVars.positions[panelId] ~= nil;
         panel.definition.postApply(panel.control, hasCustomPosition);
     end;
     SyncOverlaySize(panel);
 
-    if self.savedVars.pyramidLayoutEnabled and (panelId == "playerHealth" or panelId == "playerMagicka" or panelId == "playerStamina") then
+    if
+        self.savedVars.pyramidLayoutEnabled
+    and (panelId == "playerHealth" or panelId == "playerMagicka" or panelId == "playerStamina")
+    then
         self:ApplyPyramidLayout();
     end;
 
@@ -359,7 +262,10 @@ function KhajiitFengShui:TryCreatePanel(definition)
     table.insert(self.panels, panel);
     self.panelLookup[definition.id] = panel;
 
-    self:CreateMover(panel);
+    panel.moverEnabled = self:IsMoverEnabled(definition.id);
+    if panel.moverEnabled then
+        self:CreateMover(panel);
+    end;
     if self.settingsController then
         self.settingsController:AddPanelSetting(panel);
     end;
@@ -394,8 +300,12 @@ function KhajiitFengShui:IsPanelUnlocked(panel)
     end;
 
     if self.savedVars.pyramidLayoutEnabled then
-        local isPyramidBar = panel.definition.id == "playerHealth" or panel.definition.id == "playerMagicka" or panel.definition.id == "playerStamina";
-        local isActivePyramidBar = self.activePanelId == "playerHealth" or self.activePanelId == "playerMagicka" or self.activePanelId == "playerStamina";
+        local isPyramidBar = panel.definition.id == "playerHealth"
+            or panel.definition.id == "playerMagicka"
+            or panel.definition.id == "playerStamina";
+        local isActivePyramidBar = self.activePanelId == "playerHealth"
+            or self.activePanelId == "playerMagicka"
+            or self.activePanelId == "playerStamina";
         if isPyramidBar and isActivePyramidBar then
             return true;
         end;
@@ -447,6 +357,20 @@ function KhajiitFengShui:RefreshAllPanels()
     end;
 end;
 
+---Handles compass ApplyStyle post hook
+function KhajiitFengShui:OnCompassApplyStyle()
+    local compassPanel = self.panelLookup and self.panelLookup.compass;
+    if not (compassPanel and compassPanel.handler and compassPanel.control and compassPanel.control.SetAnchor) then
+        return;
+    end;
+
+    local position = compassPanel.handler:GetPosition(true);
+    if position then
+        local gridSize = self:GetSnapSize();
+        PanelUtils.applyControlAnchorFromPosition(compassPanel, position, gridSize);
+    end;
+end;
+
 ---Ensures compass hook is registered
 function KhajiitFengShui:EnsureCompassHook()
     if self.compassHookRegistered then
@@ -457,17 +381,7 @@ function KhajiitFengShui:EnsureCompassHook()
         return;
     end;
 
-    ZO_PostHook(COMPASS_FRAME, "ApplyStyle", function ()
-        local compassPanel = self.panelLookup and self.panelLookup.compass;
-        if not (compassPanel and compassPanel.handler and compassPanel.control and compassPanel.control.SetAnchor) then
-            return;
-        end;
-        local position = compassPanel.handler:GetPosition(true);
-        if position then
-            local gridSize = self:GetSnapSize();
-            PanelUtils.applyControlAnchorFromPosition(compassPanel, position, gridSize);
-        end;
-    end);
+    ZO_PostHook(COMPASS_FRAME, "ApplyStyle", GenerateFlatClosure(self.OnCompassApplyStyle, self));
 
     self.compassHookRegistered = true;
 end;
@@ -516,23 +430,217 @@ function KhajiitFengShui:EnsureGroupFrameHooks()
         end;
     end;
 
-    if SecurePostHook and ZO_UnitFrames_Manager then
-        SecurePostHook(ZO_UnitFrames_Manager, "UpdateGroupAnchorFrames", function ()
-            zo_callLater(function ()
-                             reapplyGroupFrameScales();
-                         end, 200);
-        end);
+    local function scheduleReapply(delay)
+        zo_callLater(GenerateFlatClosure(reapplyGroupFrameScales), delay or 0);
     end;
 
-    em:RegisterForEvent(self.name .. "_GROUP_UPDATE", EVENT_GROUP_UPDATE, function ()
-        zo_callLater(reapplyGroupFrameScales, 50);
-    end);
+    if SecurePostHook and ZO_UnitFrames_Manager then
+        SecurePostHook(
+            ZO_UnitFrames_Manager,
+            "UpdateGroupAnchorFrames",
+            GenerateFlatClosure(scheduleReapply, 200)
+        );
+    end;
 
-    em:RegisterForEvent(self.name .. "_GROUP_MEMBER_JOINED", EVENT_GROUP_MEMBER_JOINED, function ()
-        zo_callLater(reapplyGroupFrameScales, 50);
-    end);
+    em:RegisterForEvent(
+        self.name .. "_GROUP_UPDATE",
+        EVENT_GROUP_UPDATE,
+        GenerateFlatClosure(scheduleReapply, 50)
+    );
+
+    em:RegisterForEvent(
+        self.name .. "_GROUP_MEMBER_JOINED",
+        EVENT_GROUP_MEMBER_JOINED,
+        GenerateFlatClosure(scheduleReapply, 50)
+    );
 
     self.groupFrameHooksRegistered = true;
+end;
+
+---Maps custom control names to their original game control names for group frames
+local GROUP_FRAME_CONTROL_MAP =
+{
+    ["KhajiitFengShui_GroupSmall"] = "ZO_SmallGroupAnchorFrame";
+    ["KhajiitFengShui_GroupLarge1"] = "ZO_LargeGroupAnchorFrame1";
+    ["KhajiitFengShui_GroupLarge2"] = "ZO_LargeGroupAnchorFrame2";
+    ["KhajiitFengShui_GroupLarge3"] = "ZO_LargeGroupAnchorFrame3";
+    ["KhajiitFengShui_GroupLarge4"] = "ZO_LargeGroupAnchorFrame4";
+};
+
+---Sets up a custom control wrapper for a game control
+---@param customControlName string Name for the custom control
+---@param gameControlName string Name of the game control to wrap
+---@param width number Width of the custom control
+---@param height number Height of the custom control
+---@param defaultAnchor fun(customControl: userdata)? Function to set default anchor for new controls
+local function setupCustomControlWrapper(customControlName, gameControlName, width, height, defaultAnchor)
+    local customControl = _G[customControlName];
+    local isNewControl = false;
+    if not customControl then
+        customControl = WINDOW_MANAGER:CreateControl(customControlName, GuiRoot, CT_CONTROL);
+        isNewControl = true;
+    end;
+    customControl:SetDimensions(width, height);
+    customControl:SetDrawLayer(DL_CONTROLS);
+
+    local gameControl = GetControl(gameControlName);
+    if gameControl then
+        -- Only set initial anchor if this is a new control
+        if isNewControl and defaultAnchor then
+            defaultAnchor(customControl);
+        end;
+        -- Always ensure the original container is anchored to our custom control
+        gameControl:ClearAnchors();
+        gameControl:SetAnchor(CENTER, customControl, CENTER, 0, 0);
+        -- Ensure game control inherits scale from custom control
+        gameControl:SetInheritScale(true);
+    end;
+end;
+
+---Sets up custom control wrappers for UI elements to enable proper positioning
+function KhajiitFengShui:SetupCustomControls()
+    -- Create a custom control to hold the player buffs/debuffs
+    setupCustomControlWrapper(
+        "KhajiitFengShui_PlayerBuffs",
+        "ZO_BuffDebuffTopLevelSelfContainer",
+        400,
+        70,
+        function (customControl)
+            local playerAttribute = GetControl("ZO_PlayerAttribute");
+            if playerAttribute then
+                customControl:SetAnchor(CENTER, playerAttribute, TOP, 0, -40);
+            end;
+        end
+    );
+
+    -- Create a custom control to hold the target debuffs
+    setupCustomControlWrapper(
+        "KhajiitFengShui_TargetDebuffs",
+        "ZO_BuffDebuffTopLevelTargetContainer",
+        400,
+        70,
+        function (customControl)
+            local targetFrame = GetControl("ZO_TargetUnitFramereticleover");
+            if targetFrame then
+                customControl:SetAnchor(CENTER, targetFrame, BOTTOM, 0, 40);
+            end;
+        end
+    );
+
+    -- Create a custom control for subtitles
+    setupCustomControlWrapper(
+        "KhajiitFengShui_Subtitles",
+        "ZO_Subtitles",
+        256,
+        80,
+        function (customControl)
+            customControl:SetAnchor(CENTER, GuiRoot, BOTTOM, 0, -150);
+        end
+    );
+
+    -- Create a custom control for objective meter
+    setupCustomControlWrapper(
+        "KhajiitFengShui_ObjectiveMeter",
+        "ZO_ObjectiveCaptureMeter",
+        128,
+        128,
+        function (customControl)
+            customControl:SetAnchor(CENTER, GuiRoot, CENTER, 0, 0);
+        end
+    );
+
+    -- Create a custom control for player interaction
+    setupCustomControlWrapper(
+        "KhajiitFengShui_PlayerInteract",
+        "ZO_PlayerToPlayerAreaPromptContainer",
+        870,
+        30,
+        function (customControl)
+            customControl:SetAnchor(CENTER, GuiRoot, BOTTOM, 0, -100);
+        end
+    );
+
+    -- Create a custom control for synergy prompt
+    setupCustomControlWrapper(
+        "KhajiitFengShui_Synergy",
+        "ZO_SynergyTopLevelContainer",
+        200,
+        50,
+        function (customControl)
+            customControl:SetAnchor(CENTER, GuiRoot, BOTTOM, 0, -200);
+        end
+    );
+
+    -- Create a custom control for active combat tips
+    setupCustomControlWrapper(
+        "KhajiitFengShui_CombatTips",
+        "ZO_ActiveCombatTipsTip",
+        250,
+        20,
+        function (customControl)
+            customControl:SetAnchor(CENTER, GuiRoot, BOTTOM, 0, -250);
+        end
+    );
+
+    -- Create a custom control for small group frame
+    setupCustomControlWrapper(
+        "KhajiitFengShui_GroupSmall",
+        "ZO_SmallGroupAnchorFrame",
+        260,
+        200,
+        function (customControl)
+            customControl:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, 50, 50);
+        end
+    );
+
+    -- Create custom controls for large group frames (raid)
+    setupCustomControlWrapper(
+        "KhajiitFengShui_GroupLarge1",
+        "ZO_LargeGroupAnchorFrame1",
+        260,
+        200,
+        function (customControl)
+            customControl:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, 50, 50);
+        end
+    );
+
+    setupCustomControlWrapper(
+        "KhajiitFengShui_GroupLarge2",
+        "ZO_LargeGroupAnchorFrame2",
+        260,
+        200,
+        function (customControl)
+            customControl:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, 50, 50);
+        end
+    );
+
+    setupCustomControlWrapper(
+        "KhajiitFengShui_GroupLarge3",
+        "ZO_LargeGroupAnchorFrame3",
+        260,
+        200,
+        function (customControl)
+            customControl:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, 50, 50);
+        end
+    );
+
+    setupCustomControlWrapper(
+        "KhajiitFengShui_GroupLarge4",
+        "ZO_LargeGroupAnchorFrame4",
+        260,
+        200,
+        function (customControl)
+            customControl:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, 50, 50);
+        end
+    );
+end;
+
+---Handles buff/debuff icon initialization for animation settings
+---@param control userdata
+function KhajiitFengShui:OnBuffDebuffIconInitialized(control)
+    if self.savedVars and self.savedVars.buffAnimationsEnabled then
+        control.showCooldown = true;
+    end;
 end;
 
 ---Registers buff animation hook
@@ -543,12 +651,7 @@ function KhajiitFengShui:RegisterBuffAnimationHook()
     if not SecurePostHook then
         return;
     end;
-    local addon = self;
-    SecurePostHook("ZO_BuffDebuffIcon_OnInitialized", function (control)
-        if addon.savedVars and addon.savedVars.buffAnimationsEnabled then
-            control.showCooldown = true;
-        end;
-    end);
+    SecurePostHook("ZO_BuffDebuffIcon_OnInitialized", GenerateClosure(self.OnBuffDebuffIconInitialized, self));
     self.buffAnimationHookRegistered = true;
 end;
 
@@ -585,7 +688,14 @@ function KhajiitFengShui:ApplySavedPosition(panel)
         return;
     end;
 
-    if self.savedVars.pyramidLayoutEnabled and (panel.definition.id == "playerHealth" or panel.definition.id == "playerMagicka" or panel.definition.id == "playerStamina") then
+    if
+        self.savedVars.pyramidLayoutEnabled
+    and (
+        panel.definition.id == "playerHealth"
+        or panel.definition.id == "playerMagicka"
+        or panel.definition.id == "playerStamina"
+    )
+    then
         self:ApplyPyramidLayout();
         return;
     end;
@@ -632,11 +742,11 @@ local function getExpectedBarWidth(panel, scale)
         return (panel and panel.definition and panel.definition.width or 237) * (scale or 1);
     end;
 
-    local alwaysExpanded = KFS_AttributeScaler and KFS_AttributeScaler.alwaysExpandedEnabled or false;
+    local alwaysExpanded = KhajiitFengShui.AttributeScaler and AttributeScaler.alwaysExpandedEnabled or false;
 
-    if alwaysExpanded and KFS_AttributeScaler and KFS_AttributeScaler.shrinkExpandModule then
-        local module = KFS_AttributeScaler.shrinkExpandModule;
-        local originalWidths = KFS_AttributeScaler.originalWidths;
+    if alwaysExpanded and AttributeScaler and AttributeScaler.shrinkExpandModule then
+        local module = AttributeScaler.shrinkExpandModule;
+        local originalWidths = AttributeScaler.originalWidths;
 
         if originalWidths and originalWidths.expandedWidth then
             return zo_round(originalWidths.expandedWidth * scale);
@@ -685,18 +795,33 @@ end;
 
 ---Handles move start event
 ---@param panel KhajiitFengShuiPanel
----@param handler LibCombatAlerts_MoveableControl
+---@param handler LibCombatAlerts.MoveableControl
 function KhajiitFengShui:OnMoveStart(panel, handler)
     local updateName = string.format("%s_MoveUpdate_%s", self.name, panel.definition.id);
 
     -- Only apply pyramid layout updates when in edit mode and actively dragging
     -- When using settings move button, treat as individual bar movement
-    if self.editModeActive and self.savedVars.pyramidLayoutEnabled and (panel.definition.id == "playerHealth" or panel.definition.id == "playerMagicka" or panel.definition.id == "playerStamina") then
+    if
+        self.editModeActive
+    and self.savedVars.pyramidLayoutEnabled
+    and (
+        panel.definition.id == "playerHealth"
+        or panel.definition.id == "playerMagicka"
+        or panel.definition.id == "playerStamina"
+    )
+    then
         local healthPanel = self.panelLookup["playerHealth"];
         local magickaPanel = self.panelLookup["playerMagicka"];
         local staminaPanel = self.panelLookup["playerStamina"];
 
-        if healthPanel and healthPanel.handler and magickaPanel and magickaPanel.handler and staminaPanel and staminaPanel.handler then
+        if
+            healthPanel
+        and healthPanel.handler
+        and magickaPanel
+        and magickaPanel.handler
+        and staminaPanel
+        and staminaPanel.handler
+        then
             em:RegisterForUpdate(updateName, 200, function ()
                 local left, top = PanelUtils.getAnchorPosition(handler);
                 self:UpdatePyramidLayoutFromPosition(panel.definition.id, left, top);
@@ -720,7 +845,16 @@ function KhajiitFengShui:UpdatePyramidLayoutFromPosition(movedPanelId, left, top
     local magickaPanel = self.panelLookup["playerMagicka"];
     local staminaPanel = self.panelLookup["playerStamina"];
 
-    if not (healthPanel and healthPanel.handler and magickaPanel and magickaPanel.handler and staminaPanel and staminaPanel.handler) then
+    if
+    not (
+        healthPanel
+        and healthPanel.handler
+        and magickaPanel
+        and magickaPanel.handler
+        and staminaPanel
+        and staminaPanel.handler
+    )
+    then
         return;
     end;
 
@@ -737,7 +871,7 @@ function KhajiitFengShui:UpdatePyramidLayoutFromPosition(movedPanelId, left, top
     local screenWidth = GuiRoot:GetWidth();
     local screenHeight = GuiRoot:GetHeight();
 
-    local alwaysExpanded = KFS_AttributeScaler and KFS_AttributeScaler.alwaysExpandedEnabled or false;
+    local alwaysExpanded = AttributeScaler and AttributeScaler.alwaysExpandedEnabled or false;
     local baseVerticalSpacing = alwaysExpanded and 15 or 5;
     local scaleAdjustment = zo_max(healthScale, magickaScale, staminaScale);
     local verticalSpacing = baseVerticalSpacing + (scaleAdjustment > 1 and (scaleAdjustment - 1) * 8 or 0);
@@ -770,7 +904,7 @@ end;
 
 ---Handles move stop event
 ---@param panel KhajiitFengShuiPanel
----@param handler LibCombatAlerts_MoveableControl
+---@param handler LibCombatAlerts.MoveableControl
 ---@param newPos KFS_Position?
 ---@param isExplicitStop boolean?
 function KhajiitFengShui:OnMoveStop(panel, handler, newPos, isExplicitStop)
@@ -779,7 +913,15 @@ function KhajiitFengShui:OnMoveStop(panel, handler, newPos, isExplicitStop)
 
     -- Only apply pyramid layout updates when in edit mode
     -- When using settings move button, treat as individual bar movement
-    if self.editModeActive and self.savedVars.pyramidLayoutEnabled and (panel.definition.id == "playerHealth" or panel.definition.id == "playerMagicka" or panel.definition.id == "playerStamina") then
+    if
+        self.editModeActive
+    and self.savedVars.pyramidLayoutEnabled
+    and (
+        panel.definition.id == "playerHealth"
+        or panel.definition.id == "playerMagicka"
+        or panel.definition.id == "playerStamina"
+    )
+    then
         local left, top = PanelUtils.getAnchorPosition(handler, true);
         self:UpdatePyramidLayoutFromPosition(panel.definition.id, left, top);
     else
@@ -827,22 +969,26 @@ function KhajiitFengShui:CreateMover(panel)
     if not panel.overlay then
         return;
     end;
-
-    panel.handler = LCA.MoveableControl:New(panel.overlay, { color = 0x33DD33FF; size = 2 });
+    local m_options = { color = 0x33DD33FF; size = 2 };
+    panel.handler = LCA.MoveableControl:New(panel.overlay, m_options);
     if not panel.handler then
         return;
     end;
 
-    if panel.handler.SetCenterHighlightControl then
-        panel.handler:SetCenterHighlightControl(panel.overlay);
-    end;
-
-    panel.handler:RegisterCallback(string.format("%s_MoveStart_%s", self.name, panel.definition.id), LCA.EVENT_CONTROL_MOVE_START, function ()
-        self:OnMoveStart(panel, panel.handler);
-    end);
-    panel.handler:RegisterCallback(string.format("%s_MoveStop_%s", self.name, panel.definition.id), LCA.EVENT_CONTROL_MOVE_STOP, function (newPos)
-        self:OnMoveStop(panel, panel.handler, newPos);
-    end);
+    panel.handler:RegisterCallback(
+        string.format("%s_MoveStart_%s", self.name, panel.definition.id),
+        LCA.EVENT_CONTROL_MOVE_START,
+        function ()
+            self:OnMoveStart(panel, panel.handler);
+        end
+    );
+    panel.handler:RegisterCallback(
+        string.format("%s_MoveStop_%s", self.name, panel.definition.id),
+        LCA.EVENT_CONTROL_MOVE_STOP,
+        function (newPos)
+            self:OnMoveStop(panel, panel.handler, newPos);
+        end
+    );
     panel.gamepadActive = false;
 
     local snapSize = self:GetSnapSize();
@@ -854,12 +1000,168 @@ function KhajiitFengShui:CreateMover(panel)
     if panel.definition.id == "compass" then
         self:EnsureCompassHook();
     end;
-    if panel.definition.id == "groupAnchorSmall" or
-    panel.definition.id == "groupAnchorLarge1" or
-    panel.definition.id == "groupAnchorLarge2" or
-    panel.definition.id == "groupAnchorLarge3" or
-    panel.definition.id == "groupAnchorLarge4" then
+    if
+       panel.definition.id == "groupAnchorSmall"
+    or panel.definition.id == "groupAnchorLarge1"
+    or panel.definition.id == "groupAnchorLarge2"
+    or panel.definition.id == "groupAnchorLarge3"
+    or panel.definition.id == "groupAnchorLarge4"
+    then
         self:EnsureGroupFrameHooks();
+    end;
+    panel.moverEnabled = true;
+end;
+
+---Destroys mover resources for a panel
+---@param panel KhajiitFengShuiPanel?
+function KhajiitFengShui:DestroyMover(panel)
+    if not panel then
+        return;
+    end;
+
+    if panel.handler and panel.handler.ToggleGamepadMove then
+        panel.handler:ToggleGamepadMove(false);
+    end;
+
+    panel.handler = nil;
+    panel.gamepadActive = false;
+
+    if panel.overlay then
+        panel.overlay:SetHidden(true);
+        panel.overlay:SetMouseEnabled(false);
+        panel.overlay:SetMovable(false);
+    end;
+
+    panel.overlay = nil;
+    panel.label = nil;
+    panel.moverEnabled = false;
+end;
+
+---Ensures a panel mover exists
+---@param panelId string
+function KhajiitFengShui:EnsurePanelMover(panelId)
+    if not panelId then
+        return;
+    end;
+
+    local panel = self.panelLookup and self.panelLookup[panelId];
+    if not panel then
+        local definition = self.definitionLookup and self.definitionLookup[panelId];
+        if definition then
+            panel = self:TryCreatePanel(definition);
+        end;
+    end;
+
+    if panel and not panel.handler then
+        self:CreateMover(panel);
+    end;
+end;
+
+---Enables or disables a panel mover
+---@param panelId string
+---@param enabled boolean
+function KhajiitFengShui:SetMoverEnabled(panelId, enabled)
+    if not (panelId and self.savedVars) then
+        return;
+    end;
+
+    self.savedVars.disabledPanels = self.savedVars.disabledPanels or {};
+    local shouldEnable = enabled == true;
+    local currentlyEnabled = self:IsMoverEnabled(panelId);
+    if shouldEnable == currentlyEnabled then
+        return;
+    end;
+
+    local panel = self.panelLookup and self.panelLookup[panelId];
+
+    if shouldEnable then
+        self.savedVars.disabledPanels[panelId] = nil;
+        self:EnsurePanelMover(panelId);
+        panel = self.panelLookup and self.panelLookup[panelId];
+        if panel and panel.handler then
+            self:ApplySavedPosition(panel);
+            self:ApplyPanelScale(panel);
+            self:RefreshPanelState(panel);
+        end;
+    else
+        self.savedVars.disabledPanels[panelId] = true;
+
+        if panel then
+            if panel.handler then
+                local defaultPosition = panel.defaultPosition or
+                    { left = panel.control and panel.control:GetLeft() or 0; top = panel.control and panel.control:GetTop() or 0 };
+                panel.handler:UpdatePosition(defaultPosition);
+                PanelUtils.applyControlAnchor(panel, defaultPosition.left or 0, defaultPosition.top or 0);
+            elseif panel.defaultPosition then
+                PanelUtils.applyControlAnchor(panel, panel.defaultPosition.left or 0, panel.defaultPosition.top or 0);
+            end;
+
+            if ATTRIBUTE_SCALER_PANEL_IDS[panelId] and AttributeScaler and AttributeScaler.Remove then
+                AttributeScaler:Remove(panel);
+            elseif panel.control and panel.control.SetTransformScale then
+                PanelUtils.enableInheritScaleRecursive(panel.control);
+                panel.control:SetTransformScale(panel.defaultScale or DEFAULT_SCALE);
+            end;
+
+            self:DestroyMover(panel);
+        end;
+
+        if self.activePanelId == panelId then
+            self.activePanelId = nil;
+        end;
+        if self.editModeFocusId == panelId then
+            self.editModeFocusId = nil;
+            if self.editModeActive then
+                self:SelectFirstFocusablePanel();
+            end;
+        end;
+    end;
+
+    self:RefreshAllPanels();
+    self:RefreshGridOverlay();
+    self:RefreshSettingsAvailability();
+end;
+
+---Synchronizes mover state for all panels with saved variables
+function KhajiitFengShui:SyncPanelMoverStates()
+    if not self.panels then
+        return;
+    end;
+
+    for _, panel in ipairs(self.panels) do
+        local desired = self:IsMoverEnabled(panel.definition.id);
+        local currently = panel.moverEnabled == true;
+        if desired ~= currently then
+            self:SetMoverEnabled(panel.definition.id, desired);
+        end;
+    end;
+end;
+
+---Updates settings availability based on current panel states
+function KhajiitFengShui:RefreshSettingsAvailability()
+    if not (self.settingsController and self.settingsController.settingsPanel) then
+        return;
+    end;
+
+    local pyramidEnabled = self.savedVars and self.savedVars.pyramidLayoutEnabled;
+    for _, panel in ipairs(self.panels or {}) do
+        local enabled = self:IsMoverEnabled(panel.definition.id);
+        panel.moverEnabled = enabled;
+        if enabled and not panel.handler then
+            self:CreateMover(panel);
+        end;
+
+        local isPyramidBar = panel.definition.id == "playerHealth"
+            or panel.definition.id == "playerMagicka"
+            or panel.definition.id == "playerStamina";
+        panel.moveDisabledByPyramid = pyramidEnabled and isPyramidBar;
+    end;
+
+    local lhas = LibHarvensAddonSettings;
+    if self.settingsController and self.settingsController.UpdateControls and lhas and lhas.labelPool then
+        self.settingsController:UpdateControls();
+    elseif self.settingsController and self.settingsController.RefreshDynamicControls then
+        self.settingsController:RefreshDynamicControls();
     end;
 end;
 
@@ -1105,7 +1407,8 @@ function KhajiitFengShui:ApplyKeybindStripSizing()
                 KEYBIND_STRIP.control:SetHeight(REDUCED_KEYBIND_STRIP_HEIGHT);
             end;
             if ZO_KeybindStripGamepadBackground then
-                self.keybindStripBackgroundOriginalHeight = self.keybindStripBackgroundOriginalHeight or ZO_KeybindStripGamepadBackground:GetHeight();
+                self.keybindStripBackgroundOriginalHeight = self.keybindStripBackgroundOriginalHeight
+                    or ZO_KeybindStripGamepadBackground:GetHeight();
                 ZO_KeybindStripGamepadBackground:SetHeight(REDUCED_KEYBIND_STRIP_HEIGHT);
                 if self.keybindStripBackgroundWasHidden == nil then
                     self.keybindStripBackgroundWasHidden = ZO_KeybindStripGamepadBackground:IsHidden();
@@ -1113,7 +1416,8 @@ function KhajiitFengShui:ApplyKeybindStripSizing()
                 ZO_KeybindStripGamepadBackground:SetHidden(true);
             end;
             if ZO_KeybindStripGamepadBackgroundTexture then
-                self.keybindStripBackgroundTextureOriginalHeight = self.keybindStripBackgroundTextureOriginalHeight or ZO_KeybindStripGamepadBackgroundTexture:GetHeight();
+                self.keybindStripBackgroundTextureOriginalHeight = self.keybindStripBackgroundTextureOriginalHeight
+                    or ZO_KeybindStripGamepadBackgroundTexture:GetHeight();
                 ZO_KeybindStripGamepadBackgroundTexture:SetHeight(REDUCED_KEYBIND_STRIP_HEIGHT);
                 ZO_KeybindStripGamepadBackgroundTexture:SetHidden(true);
             end;
@@ -1152,8 +1456,10 @@ end;
 
 ---Handles keybind scene state change
 ---@param sceneName string
----@param newState integer
-function KhajiitFengShui:OnKeybindSceneStateChange(sceneName, newState)
+---@param oldState integer?
+---@param newState integer?
+function KhajiitFengShui:OnKeybindSceneStateChange(sceneName, oldState, newState)
+    newState = newState or oldState;
     if not IsInGamepadPreferredMode() then
         return;
     end;
@@ -1217,7 +1523,11 @@ function KhajiitFengShui:RefreshKeybindStrip()
     end;
 
     currentScene = sceneManager:GetCurrentScene();
-    if KEYBIND_STRIP_GAMEPAD_FRAGMENT and currentScene and not currentScene:HasFragment(KEYBIND_STRIP_GAMEPAD_FRAGMENT) then
+    if
+        KEYBIND_STRIP_GAMEPAD_FRAGMENT
+    and currentScene
+    and not currentScene:HasFragment(KEYBIND_STRIP_GAMEPAD_FRAGMENT)
+    then
         currentScene:AddFragment(KEYBIND_STRIP_GAMEPAD_FRAGMENT);
         self.keybindFragmentSceneName = currentName;
     end;
@@ -1242,9 +1552,10 @@ function KhajiitFengShui:RegisterKeybindScene(sceneName)
         return;
     end;
 
-    scene:RegisterCallback("StateChange", function (_, newState)
-        self:OnKeybindSceneStateChange(sceneName, newState);
-    end);
+    scene:RegisterCallback(
+        "StateChange",
+        GenerateClosure(self.OnKeybindSceneStateChange, self, sceneName)
+    );
 
     self.keybindSceneCallbacks[sceneName] = true;
 end;
@@ -1330,6 +1641,7 @@ function KhajiitFengShui:SetProfileMode(mode, suppressRefresh)
     end;
 
     self.savedVars = target;
+    self:SyncPanelMoverStates();
 
     if suppressRefresh then
         return;
@@ -1485,6 +1797,9 @@ function KhajiitFengShui:InitializePanels()
     self.panels = {};
     self.panelLookup = {};
 
+    -- Setup custom control wrappers before creating panels
+    self:SetupCustomControls();
+
     for _, definition in ipairs(PanelDefinitions.getAll()) do
         self.definitionLookup[definition.id] = definition;
         self:TryCreatePanel(definition);
@@ -1494,9 +1809,7 @@ function KhajiitFengShui:InitializePanels()
 
     local scene = sceneManager:GetScene("gameMenuInGame");
     if scene then
-        scene:RegisterCallback("StateChange", function (oldState, newState)
-            self:OnSceneChange(oldState, newState);
-        end);
+        scene:RegisterCallback("StateChange", GenerateClosure(self.OnSceneChange, self));
     end;
 end;
 
@@ -1506,7 +1819,16 @@ function KhajiitFengShui:ApplyAllPositions()
         self:ApplyPyramidLayout();
     end;
     for _, panel in ipairs(self.panels) do
-        if not (self.savedVars.pyramidLayoutEnabled and (panel.definition.id == "playerHealth" or panel.definition.id == "playerMagicka" or panel.definition.id == "playerStamina")) then
+        if
+        not (
+            self.savedVars.pyramidLayoutEnabled
+            and (
+                panel.definition.id == "playerHealth"
+                or panel.definition.id == "playerMagicka"
+                or panel.definition.id == "playerStamina"
+            )
+        )
+        then
             self:ApplySavedPosition(panel);
         end;
     end;
@@ -1518,7 +1840,16 @@ function KhajiitFengShui:ApplyPyramidLayout()
     local magickaPanel = self.panelLookup["playerMagicka"];
     local staminaPanel = self.panelLookup["playerStamina"];
 
-    if not (healthPanel and healthPanel.handler and magickaPanel and magickaPanel.handler and staminaPanel and staminaPanel.handler) then
+    if
+    not (
+        healthPanel
+        and healthPanel.handler
+        and magickaPanel
+        and magickaPanel.handler
+        and staminaPanel
+        and staminaPanel.handler
+    )
+    then
         return;
     end;
 
@@ -1531,20 +1862,29 @@ function KhajiitFengShui:ApplyPyramidLayout()
     self:ApplyPanelScale(staminaPanel);
 
     zo_callLater(function ()
-                     if not (healthPanel and healthPanel.handler and magickaPanel and magickaPanel.handler and staminaPanel and staminaPanel.handler) then
+                     if
+                     not (
+                         healthPanel
+                         and healthPanel.handler
+                         and magickaPanel
+                         and magickaPanel.handler
+                         and staminaPanel
+                         and staminaPanel.handler
+                     )
+                     then
                          return;
                      end;
 
-                    local healthWidth = getExpectedBarWidth(healthPanel, healthScale);
-                    local magickaWidth = getExpectedBarWidth(magickaPanel, magickaScale);
-                    local staminaWidth = getExpectedBarWidth(staminaPanel, staminaScale);
+                     local healthWidth = getExpectedBarWidth(healthPanel, healthScale);
+                     local magickaWidth = getExpectedBarWidth(magickaPanel, magickaScale);
+                     local staminaWidth = getExpectedBarWidth(staminaPanel, staminaScale);
 
-                    local healthHeight = getExpectedBarHeight(healthPanel, healthScale);
+                     local healthHeight = getExpectedBarHeight(healthPanel, healthScale);
 
                      local screenWidth = GuiRoot:GetWidth();
                      local screenHeight = GuiRoot:GetHeight();
 
-                     local alwaysExpanded = KFS_AttributeScaler and KFS_AttributeScaler.alwaysExpandedEnabled or false;
+                     local alwaysExpanded = AttributeScaler and AttributeScaler.alwaysExpandedEnabled or false;
                      local baseVerticalSpacing = alwaysExpanded and 15 or 5;
                      local scaleAdjustment = zo_max(healthScale, magickaScale, staminaScale);
                      local verticalSpacing = baseVerticalSpacing + (scaleAdjustment > 1 and (scaleAdjustment - 1) * 8 or 0);
@@ -1595,9 +1935,9 @@ end;
 ---@param eventId integer
 ---@param initial boolean
 function KhajiitFengShui:EVENT_PLAYER_ACTIVATED(eventId, initial)
-    zo_callLater(function ()
-                     self:ApplyAllPositions();
-                 end, 200);
+    -- Ensure custom control wrappers are set up
+    zo_callLater(GenerateFlatClosure(self.SetupCustomControls, self), 100);
+    zo_callLater(GenerateFlatClosure(self.ApplyAllPositions, self), 200);
 end;
 
 ---Handles addon loaded event
@@ -1611,8 +1951,6 @@ function KhajiitFengShui:OnAddOnLoaded(event, addonName)
     em:UnregisterForEvent(self.name, EVENT_ADD_ON_LOADED);
 
     LCA = LibCombatAlerts;
-    LHAS = LibHarvensAddonSettings;
-    self.LHAS = LHAS;
 
     self.accountSavedVars = ZO_SavedVars:NewAccountWide("KhajiitFengShui_SavedVariables", 1, nil, self.defaults);
     self.characterSavedVars = ZO_SavedVars:NewCharacterIdSettings("KhajiitFengShui_SavedVariables", 1, nil, self.defaults);
@@ -1625,6 +1963,45 @@ function KhajiitFengShui:OnAddOnLoaded(event, addonName)
 
     self:UpdateBuffAnimationHook();
     self:ApplyGlobalCooldownSetting();
+
+    -- Hook boss bar to hide it if disabled
+    if self.savedVars.bossBarEnabled then
+        local bossBarEnabled = self.savedVars.bossBarEnabled;
+        local RefreshBossHealthBar = function (bossBarSelf, smoothAnimate)
+            local totalHealth = 0;
+            local totalMaxHealth = 0;
+
+            for unitTag, bossEntry in pairs(bossBarSelf.bossHealthValues) do
+                totalHealth = totalHealth + bossEntry.health;
+                totalMaxHealth = totalMaxHealth + bossEntry.maxHealth;
+            end;
+
+            local halfHealth = zo_floor(totalHealth / 2);
+            local halfMax = zo_floor(totalMaxHealth / 2);
+            for i = 1, #bossBarSelf.bars do
+                ZO_StatusBar_SmoothTransition(bossBarSelf.bars[i], halfHealth, halfMax, not smoothAnimate);
+            end;
+            bossBarSelf.healthText:SetText(ZO_FormatResourceBarCurrentAndMax(totalHealth, totalMaxHealth));
+
+            -- Hide or show boss bar based on setting
+            if COMPASS_FRAME then
+                COMPASS_FRAME:SetBossBarActive(bossBarEnabled and totalHealth > 0);
+            end;
+        end;
+        rawset(BOSS_BAR, "RefreshBossHealthBar", RefreshBossHealthBar);
+    end;
+
+    -- Hook reticle to hide it if disabled
+    local reticleEnabled = self.savedVars.reticleEnabled;
+    ZO_PreHook(RETICLE, "UpdateHiddenState", function (reticleSelf)
+        if not reticleEnabled then
+            -- Force hide reticle if disabled
+            reticleSelf.control:SetHidden(true);
+            return true; -- Prevent original function from running
+        end;
+        -- Let original function run if enabled
+        return false;
+    end);
 
     if self.savedVars.alwaysExpandedBars then
         -- Hook OnValueChanged to force expanded state when enabled
@@ -1648,45 +2025,38 @@ function KhajiitFengShui:OnAddOnLoaded(event, addonName)
         end;
     end;
 
-    if KFS_AttributeScaler then
-        KFS_AttributeScaler:SetAlwaysExpanded(self.savedVars.alwaysExpandedBars);
-    end;
+    AttributeScaler:SetAlwaysExpanded(self.savedVars.alwaysExpandedBars);
 
     self:InitializePanels();
-    if SettingsController then
-        self.settingsController = SettingsController:New(self);
-        self.settingsController:CreateSettingsMenu();
-    end;
+    self.settingsController = SettingsController:New(self);
+    self.settingsController:CreateSettingsMenu();
     self:ApplyAllPositions();
     self:ApplySnapSettings();
-    self:RefreshAllPanels();
+    self:RefreshSettingsAvailability();
 
-    if EditModeController then
-        self.editModeController = EditModeController:New(self);
-        self.editModeController:Initialize();
-    end;
+    self.editModeController = EditModeController:New(self);
+    self.editModeController:Initialize();
 
-    if GridOverlay then
-        self.gridOverlay = GridOverlay:New();
-        self:RefreshGridOverlay();
-    end;
+    self.gridOverlay = GridOverlay:New();
+    self:RefreshGridOverlay();
 
     self:InitializeKeybindStrip();
 
-    CALLBACK_MANAGER:RegisterCallback("TargetFrameCreated", function (targetFrame)
-        self:OnTargetFrameCreated(targetFrame);
-    end);
+    CALLBACK_MANAGER:RegisterCallback("TargetFrameCreated", GenerateClosure(self.OnTargetFrameCreated, self));
 
-    em:RegisterForEvent(self.name, EVENT_PLAYER_ACTIVATED, function (eventId, initial)
-        self:EVENT_PLAYER_ACTIVATED(eventId, initial);
-    end);
+    em:RegisterForEvent(self.name, EVENT_PLAYER_ACTIVATED, GenerateClosure(self.EVENT_PLAYER_ACTIVATED, self));
 
-    em:RegisterForEvent(self.name, EVENT_GAMEPAD_PREFERRED_MODE_CHANGED, function ()
-        self:UpdateKeybindFragments();
-        self:RefreshKeybindStrip();
-    end);
+    em:RegisterForEvent(
+        self.name,
+        EVENT_GAMEPAD_PREFERRED_MODE_CHANGED,
+        GenerateFlatClosure(self.OnGamepadPreferredModeChanged, self)
+    );
 end;
 
-em:RegisterForEvent(ADDON_NAME, EVENT_ADD_ON_LOADED, function (event, addonName)
-    KhajiitFengShui:OnAddOnLoaded(event, addonName);
-end);
+---Handles preferred mode changes to refresh keybinds
+function KhajiitFengShui:OnGamepadPreferredModeChanged()
+    self:UpdateKeybindFragments();
+    self:RefreshKeybindStrip();
+end;
+
+em:RegisterForEvent(ADDON_NAME, EVENT_ADD_ON_LOADED, GenerateClosure(KhajiitFengShui.OnAddOnLoaded, KhajiitFengShui));

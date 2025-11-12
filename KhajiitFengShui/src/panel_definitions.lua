@@ -1,55 +1,211 @@
-local AttributeScaler = KFS_AttributeScaler;
+local AttributeScaler = KhajiitFengShui.AttributeScaler;
+local PanelUtils = KhajiitFengShui.PanelUtils;
+
+---Applies scale to a group frame panel (custom control + game control)
+---@param panel KhajiitFengShuiPanel
+---@param scale number
+---@param gameControlName string Name of the original game control
+local function applyGroupFrameScale(panel, scale, gameControlName)
+    local control = panel and panel.control;
+    if not control then
+        return;
+    end;
+    -- Apply scale to custom control
+    PanelUtils.enableInheritScaleRecursive(control);
+    control:SetTransformScale(scale);
+    -- Ensure original game control inherits scale
+    local gameControl = GetControl(gameControlName);
+    if gameControl then
+        gameControl:SetInheritScale(true);
+        PanelUtils.enableInheritScaleRecursive(gameControl);
+    end;
+    -- Trigger group frame hooks reapply
+    if KhajiitFengShui and KhajiitFengShui.EnsureGroupFrameHooks then
+        KhajiitFengShui:EnsureGroupFrameHooks();
+        zo_callLater(function ()
+                         if KhajiitFengShui.groupFrameHooksRegistered then
+                             local groupPanelIds = { "groupAnchorSmall"; "groupAnchorLarge1"; "groupAnchorLarge2"; "groupAnchorLarge3"; "groupAnchorLarge4"; };
+                             for _, panelId in ipairs(groupPanelIds) do
+                                 local groupPanel = KhajiitFengShui.panelLookup and KhajiitFengShui.panelLookup[panelId];
+                                 if groupPanel and groupPanel.control then
+                                     local panelScale = KhajiitFengShui:GetPanelScale(panelId);
+                                     groupPanel.control:SetTransformScale(panelScale);
+                                     PanelUtils.enableInheritScaleRecursive(groupPanel.control);
+                                 end;
+                             end;
+                             local unitFramesGroups = GetControl("ZO_UnitFramesGroups");
+                             if unitFramesGroups then
+                                 local maxScale = 1;
+                                 for _, panelId in ipairs(groupPanelIds) do
+                                     local groupPanel = KhajiitFengShui.panelLookup and KhajiitFengShui.panelLookup[panelId];
+                                     if groupPanel then
+                                         local panelScale = KhajiitFengShui:GetPanelScale(panelId);
+                                         if panelScale > maxScale then
+                                             maxScale = panelScale;
+                                         end;
+                                     end;
+                                 end;
+                                 if maxScale ~= 1 then
+                                     PanelUtils.enableInheritScaleRecursive(unitFramesGroups);
+                                     unitFramesGroups:SetTransformScale(maxScale);
+                                 end;
+                             end;
+                         end;
+                     end, 50);
+    end;
+end;
 
 ---@class KhajiitFengShuiPanelDefinition
 ---@field id string Unique identifier for the panel
 ---@field controlName string Name of the game control to track
 ---@field label integer String constant for localized label
----@field width number|function|nil Width in pixels or function that returns width
----@field height number|function|nil Height in pixels or function that returns height
----@field anchorPoint integer|nil Anchor point constant (TOPLEFT, CENTER, etc)
----@field anchorRelativePoint integer|nil Relative anchor point on GuiRoot
----@field anchorApply fun(panel: KhajiitFengShuiPanel, left: number, top: number)|nil Custom anchor application function
----@field scaleApply fun(panel: KhajiitFengShuiPanel, scale: number)|nil Custom scale application function
----@field preApply fun(control: userdata, hasCustomPosition: boolean)|nil Called before applying position
----@field postApply fun(control: userdata, hasCustomPosition: boolean)|nil Called after applying position
----@field condition fun(): boolean|nil Function to check if panel should be created
+---@field width number|function Width in pixels or function that returns width
+---@field height number|function Height in pixels or function that returns height
+---@field anchorPoint integer Anchor point constant (TOPLEFT, CENTER, etc)
+---@field anchorRelativePoint integer Relative anchor point on GuiRoot
+---@field anchorApply fun(panel: KhajiitFengShuiPanel, left: number, top: number) Custom anchor application function
+---@field scaleApply fun(panel: KhajiitFengShuiPanel, scale: number) Custom scale application function
+---@field preApply fun(control: userdata, hasCustomPosition: boolean) Called before applying position
+---@field postApply fun(control: userdata, hasCustomPosition: boolean) Called after applying position
+---@field condition fun(): boolean Function to check if panel should be created
 
 ---@type KhajiitFengShuiPanelDefinition[]
 local definitions =
 {
-    { id = "infamy";       controlName = "ZO_HUDInfamyMeter";                  label = KFS_LABEL_INFAMY                                 };
-    { id = "telvar";       controlName = "ZO_HUDTelvarMeter";                  label = KFS_LABEL_TELVAR                                 };
-    { id = "volendrung";   controlName = "ZO_HUDDaedricEnergyMeter";           label = KFS_LABEL_VOLENDRUNG                             };
-    { id = "equipment";    controlName = "ZO_HUDEquipmentStatus";              label = KFS_LABEL_EQUIPMENT;    width = 64;  height = 64 };
-    { id = "quest";        controlName = "ZO_FocusedQuestTrackerPanel";        label = KFS_LABEL_QUEST;        height = 200             };
-    { id = "battleground"; controlName = "ZO_BattlegroundHUDFragmentTopLevel"; label = KFS_LABEL_BATTLEGROUND; height = 200             };
-    { id = "actionbar";    controlName = "ZO_ActionBar1";                      label = KFS_LABEL_ACTIONBAR                              };
-    { id = "subtitles";    controlName = "ZO_Subtitles";                       label = KFS_LABEL_SUBTITLES;    width = 256; height = 80 };
+    {
+        id = "infamy";
+        controlName = "ZO_HUDInfamyMeter";
+        label = KFS_LABEL_INFAMY;
+    };
+    {
+        id = "telvar";
+        controlName = "ZO_HUDTelvarMeter";
+        label = KFS_LABEL_TELVAR;
+    };
+    {
+        id = "volendrung";
+        controlName = "ZO_HUDDaedricEnergyMeter";
+        label = KFS_LABEL_VOLENDRUNG;
+    };
+    {
+        id = "equipment";
+        controlName = "ZO_HUDEquipmentStatus";
+        label = KFS_LABEL_EQUIPMENT;
+        width = 64;
+        height = 64;
+    };
+    {
+        id = "quest";
+        controlName = "ZO_FocusedQuestTrackerPanel";
+        label = KFS_LABEL_QUEST;
+        height = 200;
+    };
+    {
+        id = "battleground";
+        controlName = "ZO_BattlegroundHUDFragmentTopLevel";
+        label = KFS_LABEL_BATTLEGROUND;
+        height = 200;
+    };
+    {
+        id = "actionbar";
+        controlName = "ZO_ActionBar1";
+        label = KFS_LABEL_ACTIONBAR;
+    };
+    {
+        id = "subtitles";
+        controlName = "KhajiitFengShui_Subtitles";
+        label = KFS_LABEL_SUBTITLES;
+        width = function ()
+            local control = GetControl("KhajiitFengShui_Subtitles");
+            if control then
+                return control:GetWidth() or 256;
+            end;
+            return 256;
+        end;
+        height = function ()
+            local control = GetControl("KhajiitFengShui_Subtitles");
+            if control then
+                return control:GetHeight() or 80;
+            end;
+            return 80;
+        end;
+        condition = function ()
+            return GetControl("KhajiitFengShui_Subtitles") ~= nil;
+        end;
+    };
     {
         id = "objective";
-        controlName = "ZO_ObjectiveCaptureMeter";
+        controlName = "KhajiitFengShui_ObjectiveMeter";
         label = KFS_LABEL_OBJECTIVE;
-        width = 128;
-        height = 128;
+        width = function ()
+            local control = GetControl("KhajiitFengShui_ObjectiveMeter");
+            if control then
+                return control:GetWidth() or 128;
+            end;
+            return 128;
+        end;
+        height = function ()
+            local control = GetControl("KhajiitFengShui_ObjectiveMeter");
+            if control then
+                return control:GetHeight() or 128;
+            end;
+            return 128;
+        end;
+        condition = function ()
+            return GetControl("KhajiitFengShui_ObjectiveMeter") ~= nil;
+        end;
         postApply = function (control)
-            if ZO_ObjectiveCaptureMeterFrame then
-                ZO_ObjectiveCaptureMeterFrame:SetAnchor(BOTTOM, control, BOTTOM, 0, 0);
+            local gameControl = GetControl("ZO_ObjectiveCaptureMeter");
+            if gameControl and ZO_ObjectiveCaptureMeterFrame then
+                ZO_ObjectiveCaptureMeterFrame:SetAnchor(BOTTOM, gameControl, BOTTOM, 0, 0);
             end;
         end;
     };
-    { id = "playerInteract"; controlName = "ZO_PlayerToPlayerAreaPromptContainer"; label = KFS_LABEL_PLAYER_INTERACT; width = 870; height = 30 };
+    {
+        id = "playerInteract";
+        controlName = "KhajiitFengShui_PlayerInteract";
+        label = KFS_LABEL_PLAYER_INTERACT;
+        width = function ()
+            local control = GetControl("KhajiitFengShui_PlayerInteract");
+            if control then
+                return control:GetWidth() or 870;
+            end;
+            return 870;
+        end;
+        height = function ()
+            local control = GetControl("KhajiitFengShui_PlayerInteract");
+            if control then
+                return control:GetHeight() or 30;
+            end;
+            return 30;
+        end;
+        condition = function ()
+            return GetControl("KhajiitFengShui_PlayerInteract") ~= nil;
+        end;
+    };
     {
         id = "synergy";
-        controlName = "ZO_SynergyTopLevelContainer";
+        controlName = "KhajiitFengShui_Synergy";
         label = KFS_LABEL_SYNERGY;
-        width = function (control)
-            return control:GetWidth() or 200;
+        width = function ()
+            local control = GetControl("KhajiitFengShui_Synergy");
+            if control then
+                return control:GetWidth() or 200;
+            end;
+            return 200;
         end;
-        height = function (control)
-            return control:GetHeight() or 50;
+        height = function ()
+            local control = GetControl("KhajiitFengShui_Synergy");
+            if control then
+                return control:GetHeight() or 50;
+            end;
+            return 50;
         end;
         anchorPoint = BOTTOM;
         anchorRelativePoint = BOTTOM;
+        condition = function ()
+            return GetControl("KhajiitFengShui_Synergy") ~= nil;
+        end;
     };
     {
         id = "compass";
@@ -157,7 +313,8 @@ local definitions =
                     defaults.labelAnchorTarget or control,
                     defaults.labelAnchorRelativePoint or TOP,
                     defaults.labelOffsetX or 0,
-                    defaults.labelOffsetY or -5);
+                    defaults.labelOffsetY or -5
+                );
             end;
 
             if COMPASS_FRAME and COMPASS_FRAME.ApplyStyle then
@@ -182,7 +339,11 @@ local definitions =
         width = 230;
         height = 100;
     };
-    { id = "reticle";        controlName = "ZO_ReticleContainerInteract";          label = KFS_LABEL_RETICLE                                   };
+    {
+        id = "reticle";
+        controlName = "ZO_ReticleContainerInteract";
+        label = KFS_LABEL_RETICLE;
+    };
     {
         id = "targetFrame";
         controlName = "ZO_TargetUnitFramereticleover";
@@ -256,11 +417,39 @@ local definitions =
     };
     {
         id = "activeCombatTips";
-        controlName = "ZO_ActiveCombatTipsTip";
+        controlName = "KhajiitFengShui_CombatTips";
         label = KFS_LABEL_COMBAT_TIPS;
-        width = 250;
-        height = 20;
-        postApply = function ()
+        width = function ()
+            local control = GetControl("KhajiitFengShui_CombatTips");
+            if control then
+                return control:GetWidth() or 250;
+            end;
+            return 250;
+        end;
+        height = function ()
+            local control = GetControl("KhajiitFengShui_CombatTips");
+            if control then
+                return control:GetHeight() or 20;
+            end;
+            return 20;
+        end;
+        condition = function ()
+            return GetControl("KhajiitFengShui_CombatTips") ~= nil;
+        end;
+        preApply = function (control, hasCustomPosition)
+            -- Set initial opacity to 0 on game control to avoid white pixel showing (similar to Azurah)
+            local gameControl = GetControl("ZO_ActiveCombatTipsTip");
+            if gameControl then
+                gameControl:SetAlpha(0);
+            end;
+            -- If no custom position, set anchor to center
+            if not hasCustomPosition and gameControl then
+                gameControl:ClearAnchors();
+                gameControl:SetAnchor(CENTER, GuiRoot, CENTER, 0, 0);
+            end;
+        end;
+        postApply = function (control, hasCustomPosition)
+            -- Apply style after position/scale changes
             if ACTIVE_COMBAT_TIP_SYSTEM and ACTIVE_COMBAT_TIP_SYSTEM.ApplyStyle then
                 ACTIVE_COMBAT_TIP_SYSTEM:ApplyStyle();
             end;
@@ -268,38 +457,181 @@ local definitions =
     };
     {
         id = "groupAnchorSmall";
-        controlName = "ZO_SmallGroupAnchorFrame";
+        controlName = "KhajiitFengShui_GroupSmall";
         label = KFS_LABEL_GROUP_SMALL;
-        width = 260;
-        height = 200;
+        width = function ()
+            local control = GetControl("KhajiitFengShui_GroupSmall");
+            if control then
+                return control:GetWidth() or 260;
+            end;
+            return 260;
+        end;
+        height = function ()
+            local control = GetControl("KhajiitFengShui_GroupSmall");
+            if control then
+                return control:GetHeight() or 200;
+            end;
+            return 200;
+        end;
+        condition = function ()
+            return GetControl("KhajiitFengShui_GroupSmall") ~= nil;
+        end;
+        scaleApply = function (panel, scale)
+            applyGroupFrameScale(panel, scale, "ZO_SmallGroupAnchorFrame");
+        end;
     };
     {
         id = "groupAnchorLarge1";
-        controlName = "ZO_LargeGroupAnchorFrame1";
+        controlName = "KhajiitFengShui_GroupLarge1";
         label = KFS_LABEL_GROUP_LARGE_1;
-        width = 260;
-        height = 200;
+        width = function ()
+            local control = GetControl("KhajiitFengShui_GroupLarge1");
+            if control then
+                return control:GetWidth() or 260;
+            end;
+            return 260;
+        end;
+        height = function ()
+            local control = GetControl("KhajiitFengShui_GroupLarge1");
+            if control then
+                return control:GetHeight() or 200;
+            end;
+            return 200;
+        end;
+        condition = function ()
+            return GetControl("KhajiitFengShui_GroupLarge1") ~= nil;
+        end;
+        scaleApply = function (panel, scale)
+            applyGroupFrameScale(panel, scale, "ZO_LargeGroupAnchorFrame1");
+        end;
     };
     {
         id = "groupAnchorLarge2";
-        controlName = "ZO_LargeGroupAnchorFrame2";
+        controlName = "KhajiitFengShui_GroupLarge2";
         label = KFS_LABEL_GROUP_LARGE_2;
-        width = 260;
-        height = 200;
+        width = function ()
+            local control = GetControl("KhajiitFengShui_GroupLarge2");
+            if control then
+                return control:GetWidth() or 260;
+            end;
+            return 260;
+        end;
+        height = function ()
+            local control = GetControl("KhajiitFengShui_GroupLarge2");
+            if control then
+                return control:GetHeight() or 200;
+            end;
+            return 200;
+        end;
+        condition = function ()
+            return GetControl("KhajiitFengShui_GroupLarge2") ~= nil;
+        end;
+        scaleApply = function (panel, scale)
+            applyGroupFrameScale(panel, scale, "ZO_LargeGroupAnchorFrame2");
+        end;
     };
     {
         id = "groupAnchorLarge3";
-        controlName = "ZO_LargeGroupAnchorFrame3";
+        controlName = "KhajiitFengShui_GroupLarge3";
         label = KFS_LABEL_GROUP_LARGE_3;
+        width = function ()
+            local control = GetControl("KhajiitFengShui_GroupLarge3");
+            if control then
+                return control:GetWidth() or 260;
+            end;
+            return 260;
+        end;
+        height = function ()
+            local control = GetControl("KhajiitFengShui_GroupLarge3");
+            if control then
+                return control:GetHeight() or 200;
+            end;
+            return 200;
+        end;
+        condition = function ()
+            return GetControl("KhajiitFengShui_GroupLarge3") ~= nil;
+        end;
+        scaleApply = function (panel, scale)
+            applyGroupFrameScale(panel, scale, "ZO_LargeGroupAnchorFrame3");
+        end;
+    };
+    {
+        id = "groupAnchorLarge4";
+        controlName = "KhajiitFengShui_GroupLarge4";
+        label = KFS_LABEL_GROUP_LARGE_4;
+        width = function ()
+            local control = GetControl("KhajiitFengShui_GroupLarge4");
+            if control then
+                return control:GetWidth() or 260;
+            end;
+            return 260;
+        end;
+        height = function ()
+            local control = GetControl("KhajiitFengShui_GroupLarge4");
+            if control then
+                return control:GetHeight() or 200;
+            end;
+            return 200;
+        end;
+        condition = function ()
+            return GetControl("KhajiitFengShui_GroupLarge4") ~= nil;
+        end;
+        scaleApply = function (panel, scale)
+            applyGroupFrameScale(panel, scale, "ZO_LargeGroupAnchorFrame4");
+        end;
+    };
+    {
+        id = "petGroup";
+        controlName = "PetGroupAnchorFrame";
+        label = KFS_LABEL_PET_GROUP;
         width = 260;
         height = 200;
     };
     {
-        id = "groupAnchorLarge4";
-        controlName = "ZO_LargeGroupAnchorFrame4";
-        label = KFS_LABEL_GROUP_LARGE_4;
-        width = 260;
+        id = "centerAnnounce";
+        controlName = "ZO_CenterScreenAnnounce";
+        label = KFS_LABEL_CENTER_ANNOUNCE;
+        width = 600;
+        height = 100;
+        postApply = function ()
+            if CENTER_SCREEN_ANNOUNCE and CENTER_SCREEN_ANNOUNCE.ApplyStyle then
+                CENTER_SCREEN_ANNOUNCE:ApplyStyle();
+            end;
+        end;
+    };
+    {
+        id = "stealthIcon";
+        controlName = "ZO_ReticleContainerStealthIcon";
+        label = KFS_LABEL_STEALTH_ICON;
+        width = 64;
+        height = 64;
+    };
+    {
+        id = "reticleIcon";
+        controlName = "ZO_ReticleContainerReticle";
+        label = KFS_LABEL_RETICLE_ICON;
+    };
+    {
+        id = "dialogueWindow";
+        controlName = "ZO_InteractWindowDivider";
+        label = KFS_LABEL_DIALOGUE_WINDOW;
+        width = 300;
         height = 200;
+    };
+    {
+        id = "ramSiege";
+        controlName = "ZO_RamTopLevel";
+        label = KFS_LABEL_RAM_SIEGE;
+    };
+    {
+        id = "questTimer";
+        controlName = "ZO_FocusedQuestTrackerPanelTimerAnchor";
+        label = KFS_LABEL_QUEST_TIMER;
+        width = 128;
+        height = 128;
+        condition = function ()
+            return GetControl("ZO_FocusedQuestTrackerPanelTimerAnchor") ~= nil;
+        end;
     };
     {
         id = "playerHealth";
@@ -372,50 +704,50 @@ local definitions =
     };
     {
         id = "buffSelf";
-        controlName = "ZO_BuffDebuffTopLevelSelfContainer";
+        controlName = "KhajiitFengShui_PlayerBuffs";
         label = KFS_LABEL_BUFF_SELF;
         width = function ()
-            local control = GetControl("ZO_BuffDebuffTopLevelSelfContainer");
+            local control = GetControl("KhajiitFengShui_PlayerBuffs");
             if control then
-                return control:GetWidth() or 420;
+                return control:GetWidth() or 400;
             end;
-            return 420;
+            return 400;
         end;
         height = function ()
-            local control = GetControl("ZO_BuffDebuffTopLevelSelfContainer");
+            local control = GetControl("KhajiitFengShui_PlayerBuffs");
             if control then
-                return control:GetHeight() or 100;
+                return control:GetHeight() or 70;
             end;
-            return 100;
+            return 70;
         end;
         anchorPoint = BOTTOM;
         anchorRelativePoint = BOTTOM;
         condition = function ()
-            return GetControl("ZO_BuffDebuffTopLevelSelfContainer") ~= nil;
+            return GetControl("KhajiitFengShui_PlayerBuffs") ~= nil;
         end;
     };
     {
         id = "buffTarget";
-        controlName = "ZO_BuffDebuffTopLevelTargetContainer";
+        controlName = "KhajiitFengShui_TargetDebuffs";
         label = KFS_LABEL_BUFF_TARGET;
         width = function ()
-            local control = GetControl("ZO_BuffDebuffTopLevelTargetContainer");
+            local control = GetControl("KhajiitFengShui_TargetDebuffs");
             if control then
-                return control:GetWidth() or 420;
+                return control:GetWidth() or 400;
             end;
-            return 420;
+            return 400;
         end;
         height = function ()
-            local control = GetControl("ZO_BuffDebuffTopLevelTargetContainer");
+            local control = GetControl("KhajiitFengShui_TargetDebuffs");
             if control then
-                return control:GetHeight() or 100;
+                return control:GetHeight() or 70;
             end;
-            return 100;
+            return 70;
         end;
         anchorPoint = BOTTOM;
         anchorRelativePoint = BOTTOM;
         condition = function ()
-            return GetControl("ZO_BuffDebuffTopLevelTargetContainer") ~= nil;
+            return GetControl("KhajiitFengShui_TargetDebuffs") ~= nil;
         end;
     };
     {
@@ -476,4 +808,4 @@ function PanelDefinitions.resolveControl(definition)
     return control;
 end;
 
-KFS_PanelDefinitions = PanelDefinitions;
+KhajiitFengShui.PanelDefinitions = PanelDefinitions;

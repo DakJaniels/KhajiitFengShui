@@ -1,10 +1,10 @@
 ---@class KFS_AttributeScaler
 ---@field entries table<userdata, KFS_AttributeScalerEntry> Map of controls to scale entries
----@field shrinkExpandModule { barInfo: table, barControls: table, normalWidth: number, expandedWidth: number, shrunkWidth: number, OnValueChanged: function }|nil Shrink/expand visual module reference
+---@field shrinkExpandModule { barInfo: table, barControls: table, normalWidth: number, expandedWidth: number, shrunkWidth: number, OnValueChanged: function } Shrink/expand visual module reference
 ---@field originalWidths { normalWidth: number?, expandedWidth: number?, shrunkWidth: number? } Original bar widths before scaling
 ---@field statScales table<integer, number> Current scale per stat type
 ---@field eventsRegistered boolean Whether events have been registered
----@field alwaysExpandedEnabled boolean|nil Whether bars should always be expanded
+---@field alwaysExpandedEnabled boolean Whether bars should always be expanded
 local AttributeScaler = {};
 AttributeScaler.__index = AttributeScaler;
 
@@ -12,40 +12,26 @@ local EVENT_NAMESPACE = "KFS_AttributeScaler";
 
 ---@class KFS_AttributeScalerEntry
 ---@field control userdata The attribute bar control
----@field overlay userdata|nil Overlay control reference
+---@field overlay userdata Overlay control reference
 ---@field scale number Current scale factor
----@field panel KhajiitFengShuiPanel|nil Panel reference
+---@field panel KhajiitFengShuiPanel Panel reference
 
-local POWER_TYPE_TO_CONTROL = {};
-if COMBAT_MECHANIC_FLAGS_HEALTH then
-    POWER_TYPE_TO_CONTROL[COMBAT_MECHANIC_FLAGS_HEALTH] = ZO_PlayerAttributeHealth;
-end;
-if COMBAT_MECHANIC_FLAGS_MAGICKA then
-    POWER_TYPE_TO_CONTROL[COMBAT_MECHANIC_FLAGS_MAGICKA] = ZO_PlayerAttributeMagicka;
-end;
-if COMBAT_MECHANIC_FLAGS_STAMINA then
-    POWER_TYPE_TO_CONTROL[COMBAT_MECHANIC_FLAGS_STAMINA] = ZO_PlayerAttributeStamina;
-end;
-if COMBAT_MECHANIC_FLAGS_MOUNT_STAMINA then
-    POWER_TYPE_TO_CONTROL[COMBAT_MECHANIC_FLAGS_MOUNT_STAMINA] = ZO_PlayerAttributeMountStamina;
-end;
-if COMBAT_MECHANIC_FLAGS_WEREWOLF then
-    POWER_TYPE_TO_CONTROL[COMBAT_MECHANIC_FLAGS_WEREWOLF] = ZO_PlayerAttributeWerewolf;
-end;
+local POWER_TYPE_TO_CONTROL =
+{
+    [COMBAT_MECHANIC_FLAGS_HEALTH] = ZO_PlayerAttributeHealth;
+    [COMBAT_MECHANIC_FLAGS_MAGICKA] = ZO_PlayerAttributeMagicka;
+    [COMBAT_MECHANIC_FLAGS_STAMINA] = ZO_PlayerAttributeStamina;
+    [COMBAT_MECHANIC_FLAGS_MOUNT_STAMINA] = ZO_PlayerAttributeMountStamina;
+    [COMBAT_MECHANIC_FLAGS_WEREWOLF] = ZO_PlayerAttributeWerewolf;
+};
 
-local STAT_TO_CONTROL = {};
-if STAT_HEALTH_MAX then
-    STAT_TO_CONTROL[STAT_HEALTH_MAX] = ZO_PlayerAttributeHealth;
-end;
-if STAT_MAGICKA_MAX then
-    STAT_TO_CONTROL[STAT_MAGICKA_MAX] = ZO_PlayerAttributeMagicka;
-end;
-if STAT_STAMINA_MAX then
-    STAT_TO_CONTROL[STAT_STAMINA_MAX] = ZO_PlayerAttributeStamina;
-end;
-if STAT_MOUNT_STAMINA_MAX then
-    STAT_TO_CONTROL[STAT_MOUNT_STAMINA_MAX] = ZO_PlayerAttributeMountStamina;
-end;
+local STAT_TO_CONTROL =
+{
+    [STAT_HEALTH_MAX] = ZO_PlayerAttributeHealth;
+    [STAT_MAGICKA_MAX] = ZO_PlayerAttributeMagicka;
+    [STAT_STAMINA_MAX] = ZO_PlayerAttributeStamina;
+    [STAT_MOUNT_STAMINA_MAX] = ZO_PlayerAttributeMountStamina;
+};
 
 local PRIMARY_STATS =
 {
@@ -221,8 +207,8 @@ function AttributeScaler:ReapplyAll()
             end;
             if currentControl then
                 self:ApplyScaleToControl(currentControl, entry.scale);
-                if entry.panel and entry.panel.overlay and KFS_PanelUtils then
-                    KFS_PanelUtils.syncOverlaySize(entry.panel);
+                if entry.panel and entry.panel.overlay and KhajiitFengShui.PanelUtils then
+                    KhajiitFengShui.PanelUtils.syncOverlaySize(entry.panel);
                 end;
             end;
         end;
@@ -230,12 +216,18 @@ function AttributeScaler:ReapplyAll()
 end;
 
 ---Handles attribute visual changes
----@param unitTag string
----@param _ any
----@param statType integer
----@param _ any
----@param powerType integer
-function AttributeScaler:OnAttributeVisualChange(unitTag, _, statType, _, powerType)
+--- @param eventId integer
+--- @param unitTag string
+--- @param unitAttributeVisual UnitAttributeVisual
+--- @param statType DerivedStats
+--- @param attributeType Attributes
+--- @param powerType CombatMechanicFlags
+--- @param oldValue number
+--- @param newValue number
+--- @param oldMaxValue number
+--- @param newMaxValue number
+--- @param sequenceId integer
+function AttributeScaler:OnAttributeVisualChange(eventId, unitTag, unitAttributeVisual, statType, attributeType, powerType, oldValue, newValue, oldMaxValue, newMaxValue, sequenceId)
     if unitTag ~= "player" then
         return;
     end;
@@ -249,6 +241,84 @@ function AttributeScaler:OnAttributeVisualChange(unitTag, _, statType, _, powerT
     end;
 end;
 
+---Schedules mount stamina scale reapplies after UI changes
+---@param delay integer?
+function AttributeScaler:ScheduleMountReapply(delay)
+    zo_callLater(GenerateFlatClosure(self.ReapplyMountStaminaScale, self), delay or 0);
+end;
+
+---Reapplies mount stamina scale while keeping entry references in sync
+function AttributeScaler:ReapplyMountStaminaScale()
+    local mountControl = GetControl("ZO_PlayerAttributeMountStamina");
+    if mountControl then
+        local entry = self.entries[mountControl];
+        if not entry then
+            for control, existingEntry in pairs(self.entries) do
+                if
+                    existingEntry
+                and existingEntry.control
+                and existingEntry.control:GetName() == "ZO_PlayerAttributeMountStamina"
+                then
+                    entry = existingEntry;
+                    self.entries[mountControl] = entry;
+                    entry.control = mountControl;
+                    if control ~= mountControl then
+                        self.entries[control] = nil;
+                    end;
+                    break;
+                end;
+            end;
+        end;
+        if entry and entry.scale then
+            self:ApplyScaleToControl(mountControl, entry.scale);
+        end;
+    end;
+end;
+
+---Handles mount power updates to keep scaling applied
+function AttributeScaler:OnMountPowerUpdate(_, unitTag, _, powerType)
+    if unitTag == "player" and powerType == COMBAT_MECHANIC_FLAGS_MOUNT_STAMINA then
+        self:ScheduleMountReapply(50);
+    end;
+end;
+
+---Handles UI setting changes relevant to resource bars
+function AttributeScaler:OnInterfaceSettingChanged(_, settingType, settingId)
+    if settingType == SETTING_TYPE_UI and settingId == UI_SETTING_SHOW_RESOURCE_BARS then
+        self:ScheduleMountReapply(50);
+    end;
+end;
+
+---Applies scaling adjustments after gamepad mode toggles
+function AttributeScaler:ApplyGamepadModeChanges()
+    self:ReapplyAll();
+    self:ReapplyMountStaminaScale();
+end;
+
+---Removes scaling for a panel and restores its default scale
+---@param panel KhajiitFengShuiPanel?
+function AttributeScaler:Remove(panel)
+    if not panel or not panel.control then
+        return;
+    end;
+
+    local control = panel.control;
+    self.entries[control] = nil;
+
+    local defaultScale = panel.defaultScale or 1;
+    local statType = getStatTypeForControl(control);
+    if statType then
+        self.statScales[statType] = defaultScale;
+    end;
+
+    self:ApplyScaleToControl(control, defaultScale);
+end;
+
+---Handles preferred mode changes to sync scalers
+function AttributeScaler:OnGamepadPreferredModeChanged()
+    zo_callLater(GenerateFlatClosure(self.ApplyGamepadModeChanges, self), 200);
+end;
+
 ---Ensures event handlers are registered
 function AttributeScaler:EnsureEvents()
     if self.eventsRegistered then
@@ -256,79 +326,90 @@ function AttributeScaler:EnsureEvents()
     end;
 
     EVENT_MANAGER:UnregisterForEvent(EVENT_NAMESPACE, EVENT_PLAYER_ACTIVATED);
-    EVENT_MANAGER:RegisterForEvent(EVENT_NAMESPACE, EVENT_PLAYER_ACTIVATED, function ()
-        self:ReapplyAll();
-    end);
+    EVENT_MANAGER:RegisterForEvent(
+        EVENT_NAMESPACE,
+        EVENT_PLAYER_ACTIVATED,
+        GenerateFlatClosure(self.ReapplyAll, self)
+    );
 
     EVENT_MANAGER:UnregisterForEvent(EVENT_NAMESPACE .. "_VISUAL_ADDED", EVENT_UNIT_ATTRIBUTE_VISUAL_ADDED);
-    EVENT_MANAGER:RegisterForEvent(EVENT_NAMESPACE .. "_VISUAL_ADDED", EVENT_UNIT_ATTRIBUTE_VISUAL_ADDED, function (_, unitTag, visual, statType, attributeType, powerType)
-        self:OnAttributeVisualChange(unitTag, visual, statType, attributeType, powerType);
-    end);
-    EVENT_MANAGER:AddFilterForEvent(EVENT_NAMESPACE .. "_VISUAL_ADDED", EVENT_UNIT_ATTRIBUTE_VISUAL_ADDED, REGISTER_FILTER_UNIT_TAG, "player");
+    EVENT_MANAGER:RegisterForEvent(
+        EVENT_NAMESPACE .. "_VISUAL_ADDED",
+        EVENT_UNIT_ATTRIBUTE_VISUAL_ADDED,
+        GenerateClosure(self.OnAttributeVisualChange, self)
+    );
+    EVENT_MANAGER:AddFilterForEvent(
+        EVENT_NAMESPACE .. "_VISUAL_ADDED",
+        EVENT_UNIT_ATTRIBUTE_VISUAL_ADDED,
+        REGISTER_FILTER_UNIT_TAG,
+        "player"
+    );
 
     EVENT_MANAGER:UnregisterForEvent(EVENT_NAMESPACE .. "_VISUAL_REMOVED", EVENT_UNIT_ATTRIBUTE_VISUAL_REMOVED);
-    EVENT_MANAGER:RegisterForEvent(EVENT_NAMESPACE .. "_VISUAL_REMOVED", EVENT_UNIT_ATTRIBUTE_VISUAL_REMOVED, function (_, unitTag, visual, statType, attributeType, powerType)
-        self:OnAttributeVisualChange(unitTag, visual, statType, attributeType, powerType);
-    end);
-    EVENT_MANAGER:AddFilterForEvent(EVENT_NAMESPACE .. "_VISUAL_REMOVED", EVENT_UNIT_ATTRIBUTE_VISUAL_REMOVED, REGISTER_FILTER_UNIT_TAG, "player");
+    EVENT_MANAGER:RegisterForEvent(
+        EVENT_NAMESPACE .. "_VISUAL_REMOVED",
+        EVENT_UNIT_ATTRIBUTE_VISUAL_REMOVED,
+        GenerateClosure(self.OnAttributeVisualChange, self)
+    );
+    EVENT_MANAGER:AddFilterForEvent(
+        EVENT_NAMESPACE .. "_VISUAL_REMOVED",
+        EVENT_UNIT_ATTRIBUTE_VISUAL_REMOVED,
+        REGISTER_FILTER_UNIT_TAG,
+        "player"
+    );
 
     EVENT_MANAGER:UnregisterForEvent(EVENT_NAMESPACE .. "_VISUAL_UPDATED", EVENT_UNIT_ATTRIBUTE_VISUAL_UPDATED);
-    EVENT_MANAGER:RegisterForEvent(EVENT_NAMESPACE .. "_VISUAL_UPDATED", EVENT_UNIT_ATTRIBUTE_VISUAL_UPDATED, function (_, unitTag, visual, statType, attributeType, powerType)
-        self:OnAttributeVisualChange(unitTag, visual, statType, attributeType, powerType);
-    end);
-    EVENT_MANAGER:AddFilterForEvent(EVENT_NAMESPACE .. "_VISUAL_UPDATED", EVENT_UNIT_ATTRIBUTE_VISUAL_UPDATED, REGISTER_FILTER_UNIT_TAG, "player");
-
-    local function reapplyMountStaminaScale()
-        local mountControl = GetControl("ZO_PlayerAttributeMountStamina");
-        if mountControl then
-            local entry = self.entries[mountControl];
-            if not entry then
-                for control, existingEntry in pairs(self.entries) do
-                    if existingEntry and existingEntry.control and existingEntry.control:GetName() == "ZO_PlayerAttributeMountStamina" then
-                        entry = existingEntry;
-                        self.entries[mountControl] = entry;
-                        entry.control = mountControl;
-                        if control ~= mountControl then
-                            self.entries[control] = nil;
-                        end;
-                        break;
-                    end;
-                end;
-            end;
-            if entry and entry.scale then
-                self:ApplyScaleToControl(mountControl, entry.scale);
-            end;
-        end;
-    end;
+    EVENT_MANAGER:RegisterForEvent(
+        EVENT_NAMESPACE .. "_VISUAL_UPDATED",
+        EVENT_UNIT_ATTRIBUTE_VISUAL_UPDATED,
+        GenerateClosure(self.OnAttributeVisualChange, self)
+    );
+    EVENT_MANAGER:AddFilterForEvent(
+        EVENT_NAMESPACE .. "_VISUAL_UPDATED",
+        EVENT_UNIT_ATTRIBUTE_VISUAL_UPDATED,
+        REGISTER_FILTER_UNIT_TAG,
+        "player"
+    );
 
     EVENT_MANAGER:UnregisterForEvent(EVENT_NAMESPACE .. "_MOUNTED", EVENT_MOUNTED_STATE_CHANGED);
-    EVENT_MANAGER:RegisterForEvent(EVENT_NAMESPACE .. "_MOUNTED", EVENT_MOUNTED_STATE_CHANGED, function ()
-        zo_callLater(reapplyMountStaminaScale, 100);
-    end);
+    EVENT_MANAGER:RegisterForEvent(
+        EVENT_NAMESPACE .. "_MOUNTED",
+        EVENT_MOUNTED_STATE_CHANGED,
+        GenerateFlatClosure(self.ScheduleMountReapply, self, 100)
+    );
 
     EVENT_MANAGER:UnregisterForEvent(EVENT_NAMESPACE .. "_MOUNT_POWER", EVENT_POWER_UPDATE);
-    EVENT_MANAGER:RegisterForEvent(EVENT_NAMESPACE .. "_MOUNT_POWER", EVENT_POWER_UPDATE, function (_, unitTag, powerPoolIndex, powerType, current, max, effectiveMax)
-        if unitTag == "player" and powerType == COMBAT_MECHANIC_FLAGS_MOUNT_STAMINA then
-            zo_callLater(reapplyMountStaminaScale, 50);
-        end;
-    end);
-    EVENT_MANAGER:AddFilterForEvent(EVENT_NAMESPACE .. "_MOUNT_POWER", EVENT_POWER_UPDATE, REGISTER_FILTER_POWER_TYPE, COMBAT_MECHANIC_FLAGS_MOUNT_STAMINA);
+    EVENT_MANAGER:RegisterForEvent(
+        EVENT_NAMESPACE .. "_MOUNT_POWER",
+        EVENT_POWER_UPDATE,
+        GenerateClosure(self.OnMountPowerUpdate, self)
+    );
+    EVENT_MANAGER:AddFilterForEvent(
+        EVENT_NAMESPACE .. "_MOUNT_POWER",
+        EVENT_POWER_UPDATE,
+        REGISTER_FILTER_POWER_TYPE,
+        COMBAT_MECHANIC_FLAGS_MOUNT_STAMINA
+    );
 
     EVENT_MANAGER:UnregisterForEvent(EVENT_NAMESPACE .. "_INTERFACE_SETTING", EVENT_INTERFACE_SETTING_CHANGED);
-    EVENT_MANAGER:RegisterForEvent(EVENT_NAMESPACE .. "_INTERFACE_SETTING", EVENT_INTERFACE_SETTING_CHANGED, function (_, settingType, settingId)
-        if settingType == SETTING_TYPE_UI and settingId == UI_SETTING_SHOW_RESOURCE_BARS then
-            zo_callLater(reapplyMountStaminaScale, 50);
-        end;
-    end);
-    EVENT_MANAGER:AddFilterForEvent(EVENT_NAMESPACE .. "_INTERFACE_SETTING", EVENT_INTERFACE_SETTING_CHANGED, REGISTER_FILTER_SETTING_SYSTEM_TYPE, SETTING_TYPE_UI);
+    EVENT_MANAGER:RegisterForEvent(
+        EVENT_NAMESPACE .. "_INTERFACE_SETTING",
+        EVENT_INTERFACE_SETTING_CHANGED,
+        GenerateClosure(self.OnInterfaceSettingChanged, self)
+    );
+    EVENT_MANAGER:AddFilterForEvent(
+        EVENT_NAMESPACE .. "_INTERFACE_SETTING",
+        EVENT_INTERFACE_SETTING_CHANGED,
+        REGISTER_FILTER_SETTING_SYSTEM_TYPE,
+        SETTING_TYPE_UI
+    );
 
     EVENT_MANAGER:UnregisterForEvent(EVENT_NAMESPACE .. "_GAMEPAD_MODE", EVENT_GAMEPAD_PREFERRED_MODE_CHANGED);
-    EVENT_MANAGER:RegisterForEvent(EVENT_NAMESPACE .. "_GAMEPAD_MODE", EVENT_GAMEPAD_PREFERRED_MODE_CHANGED, function ()
-        zo_callLater(function ()
-                         self:ReapplyAll();
-                         reapplyMountStaminaScale();
-                     end, 200);
-    end);
+    EVENT_MANAGER:RegisterForEvent(
+        EVENT_NAMESPACE .. "_GAMEPAD_MODE",
+        EVENT_GAMEPAD_PREFERRED_MODE_CHANGED,
+        GenerateFlatClosure(self.OnGamepadPreferredModeChanged, self)
+    );
 
     self.eventsRegistered = true;
 end;
@@ -365,9 +446,9 @@ function AttributeScaler:Apply(panel, scale)
 
     self:ApplyScaleToControl(control, scale);
 
-    if panel.overlay and KFS_PanelUtils then
-        KFS_PanelUtils.syncOverlaySize(panel);
+    if panel.overlay then
+        KhajiitFengShui.PanelUtils.syncOverlaySize(panel);
     end;
 end;
 
-KFS_AttributeScaler = AttributeScaler:New();
+KhajiitFengShui.AttributeScaler = AttributeScaler:New();

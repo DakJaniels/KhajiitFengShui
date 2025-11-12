@@ -14,6 +14,10 @@ local strings =
     KFS_ENABLE_BUFF_ANIMATIONS_DESC_RELOAD = "Show the game's default cooldown animation on buff icons.\n\n|cFF6666WARNING:|r Changing this setting will reload the UI.";
     KFS_ENABLE_GCD = "Enable Global Cooldown";
     KFS_ENABLE_GCD_DESC = "Toggle the radial global cooldown animation on the action bar.";
+    KFS_ENABLE_BOSS_BAR = "Show Boss Health Bar";
+    KFS_ENABLE_BOSS_BAR_DESC_RELOAD = "Show the boss health bar on the compass.\n\n|cFF6666WARNING:|r Changing this setting will reload the UI.";
+    KFS_ENABLE_RETICLE = "Show Reticle";
+    KFS_ENABLE_RETICLE_DESC_RELOAD = "Show the reticle (crosshair) in the center of the screen.\n\n|cFF6666WARNING:|r Changing this setting will reload the UI.";
     KFS_PYRAMID_LAYOUT = "Pyramid Layout";
     KFS_PYRAMID_LAYOUT_DESC = "Automatically arrange Health, Magicka, and Stamina bars in a pyramid layout. Health on top center, Magicka and Stamina below on left and right.";
     KFS_ALWAYS_EXPANDED_BARS = "Always Show Expanded Bars";
@@ -21,6 +25,8 @@ local strings =
     KFS_ALWAYS_EXPANDED_BARS_DESC_RELOAD = "Keep attribute bars at their expanded size even when at full resources.\n\n|cFF6666WARNING:|r Changing this setting will reload the UI.";
     KFS_SCALE_SLIDER_LABEL = "Scale";
     KFS_SCALE_SLIDER_DESC = "Adjust the size of this control.";
+    KFS_ENABLE_PANEL = "Enable Mover";
+    KFS_ENABLE_PANEL_DESC = "Allow Khajiit Feng Shui to reposition and scale this control. Disable to let the game or other add-ons manage it.";
     KFS_PROFILE_MODE = "Layout Scope";
     KFS_PROFILE_MODE_DESC_RELOAD = "Choose whether layouts are shared account-wide or stored per character.\n\n|cFF6666WARNING:|r Changing this setting will reload the UI.";
     KFS_PROFILE_MODE_TOGGLE = "Change";
@@ -38,7 +44,6 @@ local strings =
     KFS_MOVE_BUTTON_PYRAMID_DESC = "Use /kfsedit to move pyramid bars.";
     KFS_EDIT_MODE_ENABLED = "Khajiit Feng Shui edit mode enabled.";
     KFS_EDIT_MODE_DISABLED = "Khajiit Feng Shui edit mode disabled.";
-
     KFS_LABEL_INFAMY = "Infamy Meter";
     KFS_LABEL_TELVAR = "Tel Var Meter";
     KFS_LABEL_VOLENDRUNG = "Volendrung Meter";
@@ -74,8 +79,16 @@ local strings =
     KFS_LABEL_CHAT_GAMEPAD = "Gamepad Chat Window";
     KFS_LABEL_BUFF_SELF = "Buffs & Debuffs (Self)";
     KFS_LABEL_BUFF_TARGET = "Buffs & Debuffs (Target)";
+    KFS_LABEL_PET_GROUP = "Pet Group";
+    KFS_LABEL_CENTER_ANNOUNCE = "Center Screen Announce";
+    KFS_LABEL_STEALTH_ICON = "Stealth Icon";
+    KFS_LABEL_RETICLE_ICON = "Reticle";
+    KFS_LABEL_DIALOGUE_WINDOW = "Dialogue Window";
+    KFS_LABEL_RAM_SIEGE = "Ram Siege";
+    KFS_LABEL_QUEST_TIMER = "Quest Timer";
 };
 
-for stringId, value in pairs(strings) do
-    ZO_CreateStringId(stringId, value);
+for stringId, stringValue in pairs(strings) do
+    ZO_CreateStringId(stringId, stringValue);
+    SafeAddVersion(stringId, 1);
 end;
