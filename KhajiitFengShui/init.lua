@@ -1,5 +1,5 @@
 local ADDON_NAME = "KhajiitFengShui";
-local ADDON_VERSION = "1.2.1";
+local ADDON_VERSION = "1.2.2";
 
 ---@class KFS_SavedVars
 ---@field grid { enabled: boolean, size: number }

@@ -144,8 +144,43 @@ local function computeRelativeOffsets(control, point, relativePoint, left, top, 
     local controlWidth = resolveDimension(control.GetWidth and control:GetWidth(), definition and definition.width);
     local controlHeight = resolveDimension(control.GetHeight and control:GetHeight(), definition and definition.height);
 
-    local controlAnchorX = getAnchorPointX(point, left, controlWidth, rootWidth);
-    local controlAnchorY = getAnchorPointY(point, top, controlHeight, rootHeight);
+    -- Account for scale when computing visual dimensions for positioning
+    local scale = control:GetTransformScale() or control:GetScale() or 1;
+    local visualWidth = controlWidth * scale;
+    local visualHeight = controlHeight * scale;
+
+    -- In ESO, SetTransformScale scales around the control's center, not the anchor point
+    -- So we need to adjust the anchor position to account for this
+    -- If we want the visual edge at position 'left', and the anchor point is at the edge,
+    -- the anchor point needs to be offset by half the difference between base and visual size
+    local scaleOffsetX = 0;
+    local scaleOffsetY = 0;
+
+    if scale ~= 1 then
+        -- Calculate how much the visual edge shifts from the anchor point due to center-based scaling
+        -- For TOPLEFT anchor: visual left = anchor left + (baseWidth - visualWidth) / 2
+        -- So: anchor left = visual left - (baseWidth - visualWidth) / 2
+        if point == LEFT or point == TOPLEFT or point == BOTTOMLEFT then
+            scaleOffsetX = (controlWidth - visualWidth) * 0.5;
+        elseif point == RIGHT or point == TOPRIGHT or point == BOTTOMRIGHT then
+            scaleOffsetX = -(controlWidth - visualWidth) * 0.5;
+        elseif point == CENTER or point == TOP or point == BOTTOM then
+            -- Center anchor doesn't shift horizontally
+            scaleOffsetX = 0;
+        end;
+
+        if point == TOP or point == TOPLEFT or point == TOPRIGHT then
+            scaleOffsetY = (controlHeight - visualHeight) * 0.5;
+        elseif point == BOTTOM or point == BOTTOMLEFT or point == BOTTOMRIGHT then
+            scaleOffsetY = -(controlHeight - visualHeight) * 0.5;
+        elseif point == CENTER or point == LEFT or point == RIGHT then
+            -- Center anchor doesn't shift vertically
+            scaleOffsetY = 0;
+        end;
+    end;
+
+    local controlAnchorX = getAnchorPointX(point, left - scaleOffsetX, visualWidth, rootWidth);
+    local controlAnchorY = getAnchorPointY(point, top - scaleOffsetY, visualHeight, rootHeight);
     local targetAnchorX = getAnchorPointX(relativePoint, 0, rootWidth, rootWidth);
     local targetAnchorY = getAnchorPointY(relativePoint, 0, rootHeight, rootHeight);
 
@@ -484,12 +519,15 @@ function PanelUtils.applyControlAnchorFromPosition(panel, position, gridSize)
     local definitionPoint = definition.anchorPoint;
     local definitionRelativePoint = definition.anchorRelativePoint or definitionPoint;
 
+    -- Always use computeRelativeOffsets to account for scale, even when there's no definitionPoint
+    -- The handler position represents the visual position, so we need to compute offsets correctly
     if definitionPoint then
         point = definitionPoint;
         relativePoint = definitionRelativePoint;
-        local left, top = PanelUtils.getAnchorPosition(panel.handler);
-        offsetX, offsetY = computeRelativeOffsets(control, point, relativePoint, left, top, definition);
     end;
+
+    local left, top = PanelUtils.getAnchorPosition(panel.handler);
+    offsetX, offsetY = computeRelativeOffsets(control, point, relativePoint, left, top, definition);
 
     local anchor = ZO_Anchor:New(point, GuiRoot, relativePoint, offsetX, offsetY);
     anchor:Set(control);
