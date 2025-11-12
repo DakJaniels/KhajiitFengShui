@@ -374,10 +374,22 @@ local definitions =
         id = "buffSelf";
         controlName = "ZO_BuffDebuffTopLevelSelfContainer";
         label = KFS_LABEL_BUFF_SELF;
-        width = 420;
-        height = 100;
-        anchorPoint = CENTER;
-        anchorRelativePoint = CENTER;
+        width = function ()
+            local control = GetControl("ZO_BuffDebuffTopLevelSelfContainer");
+            if control then
+                return control:GetWidth() or 420;
+            end;
+            return 420;
+        end;
+        height = function ()
+            local control = GetControl("ZO_BuffDebuffTopLevelSelfContainer");
+            if control then
+                return control:GetHeight() or 100;
+            end;
+            return 100;
+        end;
+        anchorPoint = BOTTOM;
+        anchorRelativePoint = BOTTOM;
         condition = function ()
             return GetControl("ZO_BuffDebuffTopLevelSelfContainer") ~= nil;
         end;
@@ -386,10 +398,22 @@ local definitions =
         id = "buffTarget";
         controlName = "ZO_BuffDebuffTopLevelTargetContainer";
         label = KFS_LABEL_BUFF_TARGET;
-        width = 420;
-        height = 100;
-        anchorPoint = CENTER;
-        anchorRelativePoint = CENTER;
+        width = function ()
+            local control = GetControl("ZO_BuffDebuffTopLevelTargetContainer");
+            if control then
+                return control:GetWidth() or 420;
+            end;
+            return 420;
+        end;
+        height = function ()
+            local control = GetControl("ZO_BuffDebuffTopLevelTargetContainer");
+            if control then
+                return control:GetHeight() or 100;
+            end;
+            return 100;
+        end;
+        anchorPoint = BOTTOM;
+        anchorRelativePoint = BOTTOM;
         condition = function ()
             return GetControl("ZO_BuffDebuffTopLevelTargetContainer") ~= nil;
         end;
