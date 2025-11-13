@@ -227,6 +227,7 @@ end;
 --- @param oldMaxValue number
 --- @param newMaxValue number
 --- @param sequenceId integer
+---@diagnostic disable-next-line: unused-local
 function AttributeScaler:OnAttributeVisualChange(eventId, unitTag, unitAttributeVisual, statType, attributeType, powerType, oldValue, newValue, oldMaxValue, newMaxValue, sequenceId)
     if unitTag ~= "player" then
         return;
