@@ -24,7 +24,7 @@ local function applyGroupFrameScale(panel, scale, gameControlName)
         KhajiitFengShui:EnsureGroupFrameHooks();
         zo_callLater(function ()
                          if KhajiitFengShui.groupFrameHooksRegistered then
-                             local groupPanelIds = { "groupAnchorSmall"; "groupAnchorLarge1"; "groupAnchorLarge2"; "groupAnchorLarge3"; "groupAnchorLarge4"; };
+                             local groupPanelIds = { "groupAnchorSmall"; "groupAnchorLarge1"; "groupAnchorLarge2"; "groupAnchorLarge3"; };
                              for _, panelId in ipairs(groupPanelIds) do
                                  local groupPanel = KhajiitFengShui.panelLookup and KhajiitFengShui.panelLookup[panelId];
                                  if groupPanel and groupPanel.control then
@@ -174,9 +174,9 @@ local definitions =
             return GetControl("KhajiitFengShui_ObjectiveMeter") ~= nil;
         end;
         postApply = function (control)
-            local gameControl = GetControl("ZO_ObjectiveCaptureMeter");
-            if gameControl and ZO_ObjectiveCaptureMeterFrame then
-                ZO_ObjectiveCaptureMeterFrame:SetAnchor(BOTTOM, gameControl, BOTTOM, 0, 0);
+            control = GetControl("ZO_ObjectiveCaptureMeter");
+            if control and ZO_ObjectiveCaptureMeterFrame then
+                ZO_ObjectiveCaptureMeterFrame:SetAnchor(BOTTOM, control, BOTTOM, 0, 0);
             end;
         end;
     };
@@ -371,17 +371,17 @@ local definitions =
             return GetControl("ZO_TargetUnitFramereticleover") ~= nil;
         end;
         postApply = function (control, hasCustomPosition)
-            local frame = ZO_TargetUnitFrame;
-            if not frame then
+            control = ZO_TargetUnitFrame;
+            if not control then
                 return;
             end;
 
-            if frame.ApplyPlatformStyle then
-                frame:ApplyPlatformStyle();
+            if control.ApplyPlatformStyle then
+                control:ApplyPlatformStyle();
             end;
 
             if hasCustomPosition then
-                frame:SetMovingTargetFrame(true);
+                control:SetMovingTargetFrame(true);
             end;
         end;
     };
@@ -391,7 +391,7 @@ local definitions =
         label = KFS_LABEL_LOOT_HISTORY;
         width = 280;
         height = 400;
-        condition = ZO_IsConsoleUI;
+        condition = IsInGamepadPreferredMode;
         anchorPoint = BOTTOMLEFT;
         anchorRelativePoint = BOTTOMLEFT;
         postApply = function (control)
@@ -415,7 +415,7 @@ local definitions =
         id = "tutorials";
         controlName = "ZO_TutorialHudInfoTipGamepad";
         label = KFS_LABEL_TUTORIALS;
-        condition = ZO_IsConsoleUI;
+        condition = IsInGamepadPreferredMode;
     };
     {
         id = "alerts";
@@ -575,28 +575,13 @@ local definitions =
         end;
     };
     {
-        id = "groupAnchorLarge4";
-        controlName = "KhajiitFengShui_GroupLarge4";
-        label = KFS_LABEL_GROUP_LARGE_4;
-        width = function ()
-            local control = GetControl("KhajiitFengShui_GroupLarge4");
-            if control then
-                return control:GetWidth() or 260;
-            end;
-            return 260;
-        end;
-        height = function ()
-            local control = GetControl("KhajiitFengShui_GroupLarge4");
-            if control then
-                return control:GetHeight() or 200;
-            end;
-            return 200;
-        end;
+        id = "companionUnitFrame";
+        controlName = "ZO_CompanionUnitFramecompanion";
+        label = KFS_LABEL_COMPANION_UNIT_FRAME;
+        width = 260;
+        height = 200;
         condition = function ()
-            return GetControl("KhajiitFengShui_GroupLarge4") ~= nil;
-        end;
-        scaleApply = function (panel, scale)
-            applyGroupFrameScale(panel, scale, "ZO_LargeGroupAnchorFrame4");
+            return GetControl("ZO_CompanionUnitFramecompanion") ~= nil;
         end;
     };
     {

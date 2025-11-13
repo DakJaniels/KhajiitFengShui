@@ -454,18 +454,6 @@ function KhajiitFengShui:EnsureGroupFrameHooks()
     self.groupFrameHooksRegistered = true;
 end;
 
----Maps custom control names to their original game control names for group frames
----@type table<string, string>
--- luacheck: ignore 211
-local _GROUP_FRAME_CONTROL_MAP =
-{
-    ["KhajiitFengShui_GroupSmall"] = "ZO_SmallGroupAnchorFrame";
-    ["KhajiitFengShui_GroupLarge1"] = "ZO_LargeGroupAnchorFrame1";
-    ["KhajiitFengShui_GroupLarge2"] = "ZO_LargeGroupAnchorFrame2";
-    ["KhajiitFengShui_GroupLarge3"] = "ZO_LargeGroupAnchorFrame3";
-    ["KhajiitFengShui_GroupLarge4"] = "ZO_LargeGroupAnchorFrame4";
-};
-
 ---Sets up a custom control wrapper for a game control
 ---@param customControlName string Name for the custom control
 ---@param gameControlName string Name of the game control to wrap
@@ -616,16 +604,6 @@ function KhajiitFengShui:SetupCustomControls()
     setupCustomControlWrapper(
         "KhajiitFengShui_GroupLarge3",
         "ZO_LargeGroupAnchorFrame3",
-        260,
-        200,
-        function (customControl)
-            customControl:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, 50, 50);
-        end
-    );
-
-    setupCustomControlWrapper(
-        "KhajiitFengShui_GroupLarge4",
-        "ZO_LargeGroupAnchorFrame4",
         260,
         200,
         function (customControl)
