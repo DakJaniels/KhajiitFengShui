@@ -86,6 +86,8 @@ local strings =
     KFS_LABEL_DIALOGUE_WINDOW = "Dialogue Window";
     KFS_LABEL_RAM_SIEGE = "Ram Siege";
     KFS_LABEL_QUEST_TIMER = "Quest Timer";
+    KFS_LABEL_ZONE_STORY = "Zone Story Tracker";
+    KFS_LABEL_PROMOTIONAL_EVENT = "Promotional Event Tracker";
 };
 
 for stringId, stringValue in pairs(strings) do

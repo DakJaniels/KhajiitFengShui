@@ -939,6 +939,11 @@ function KhajiitFengShui:OnMoveStop(panel, handler, newPos, isExplicitStop)
         UpdateOverlayLabel(panel, message);
     end;
 
+    -- If zone story tracker was moved, update promotional event tracker anchor if it doesn't have custom position
+    if panel.definition.id == "zoneStory" then
+        zo_callLater(GenerateFlatClosure(self.ApplyPromotionalEventAnchor, self), 50);
+    end;
+
     if isExplicitStop or IsInGamepadPreferredMode() then
         self.activePanelId = nil;
         self:RefreshAllPanels();
@@ -2033,6 +2038,9 @@ function KhajiitFengShui:OnAddOnLoaded(event, addonName)
     self:ApplySnapSettings();
     self:RefreshSettingsAvailability();
 
+    -- Initialize quest tracker handlers for promotional event anchoring
+    zo_callLater(GenerateFlatClosure(self.InitializeQuestTrackerHandlers, self), 200);
+
     self.editModeController = EditModeController:New(self);
     self.editModeController:Initialize();
 
@@ -2050,6 +2058,49 @@ function KhajiitFengShui:OnAddOnLoaded(event, addonName)
         EVENT_GAMEPAD_PREFERRED_MODE_CHANGED,
         GenerateFlatClosure(self.OnGamepadPreferredModeChanged, self)
     );
+end;
+
+---Applies promotional event tracker anchor to zone story tracker
+function KhajiitFengShui:ApplyPromotionalEventAnchor()
+    local promotionalPanel = self.panelLookup and self.panelLookup.promotionalEvent;
+    local zoneStoryPanel = self.panelLookup and self.panelLookup.zoneStory;
+
+    if not promotionalPanel or not promotionalPanel.control then
+        return;
+    end;
+
+    -- If promotional event tracker has a custom position, don't override it
+    local hasCustomPosition = self.savedVars and self.savedVars.positions and self.savedVars.positions.promotionalEvent ~= nil;
+    if hasCustomPosition then
+        return;
+    end;
+
+    local zoneStoryTracker = GetControl("ZO_ZoneStoryTracker");
+    if zoneStoryTracker and promotionalPanel.control then
+        promotionalPanel.control:ClearAnchors();
+        promotionalPanel.control:SetAnchor(BOTTOMRIGHT, zoneStoryTracker, BOTTOMRIGHT, 0, 151);
+    end;
+end;
+
+---Initializes quest tracker handlers for container show events
+function KhajiitFengShui:InitializeQuestTrackerHandlers()
+    local focusedQuestContainer = GetControl("ZO_FocusedQuestTrackerPanelContainer");
+    local zoneStoryContainer = GetControl("ZO_ZoneStoryTrackerContainer");
+
+    if focusedQuestContainer then
+        focusedQuestContainer:SetHandler("OnShow", function ()
+            self:ApplyPromotionalEventAnchor();
+        end);
+    end;
+
+    if zoneStoryContainer then
+        zoneStoryContainer:SetHandler("OnShow", function ()
+            self:ApplyPromotionalEventAnchor();
+        end);
+    end;
+
+    -- Apply initial anchor
+    zo_callLater(GenerateFlatClosure(self.ApplyPromotionalEventAnchor, self), 100);
 end;
 
 ---Handles preferred mode changes to refresh keybinds

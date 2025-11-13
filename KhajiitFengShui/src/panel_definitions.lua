@@ -99,6 +99,25 @@ local definitions =
         controlName = "ZO_FocusedQuestTrackerPanel";
         label = KFS_LABEL_QUEST;
         height = 200;
+        anchorPoint = BOTTOMRIGHT;
+        anchorRelativePoint = BOTTOMRIGHT;
+    };
+    {
+        id = "zoneStory";
+        controlName = "ZO_ZoneStoryTracker";
+        label = KFS_LABEL_ZONE_STORY;
+        height = 200;
+        anchorPoint = BOTTOMRIGHT;
+        anchorRelativePoint = BOTTOMRIGHT;
+    };
+    {
+        id = "promotionalEvent";
+        controlName = "ZO_PromotionalEventTracker_TL";
+        label = KFS_LABEL_PROMOTIONAL_EVENT;
+        height = 200;
+        condition = function ()
+            return GetControl("ZO_PromotionalEventTracker_TL") ~= nil;
+        end;
     };
     {
         id = "battleground";
