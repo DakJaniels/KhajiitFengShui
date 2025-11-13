@@ -1,5 +1,4 @@
 local ADDON_NAME = "KhajiitFengShui";
-local ADDON_VERSION = "1.1.5";
 
 local SCALE_MIN_PERCENT = 50;
 local SCALE_MAX_PERCENT = 150;
@@ -8,8 +7,6 @@ local DEFAULT_SCALE = 1;
 
 ---@type LibCombatAlerts
 local LCA;
----@type LibHarvensAddonSettings
-local LHAS;
 
 local em = GetEventManager();
 local sceneManager = SCENE_MANAGER;
@@ -458,7 +455,9 @@ function KhajiitFengShui:EnsureGroupFrameHooks()
 end;
 
 ---Maps custom control names to their original game control names for group frames
-local GROUP_FRAME_CONTROL_MAP =
+---@type table<string, string>
+-- luacheck: ignore 211
+local _GROUP_FRAME_CONTROL_MAP =
 {
     ["KhajiitFengShui_GroupSmall"] = "ZO_SmallGroupAnchorFrame";
     ["KhajiitFengShui_GroupLarge1"] = "ZO_LargeGroupAnchorFrame1";
@@ -1971,7 +1970,7 @@ function KhajiitFengShui:OnAddOnLoaded(event, addonName)
             local totalHealth = 0;
             local totalMaxHealth = 0;
 
-            for unitTag, bossEntry in pairs(bossBarSelf.bossHealthValues) do
+            for _, bossEntry in pairs(bossBarSelf.bossHealthValues) do
                 totalHealth = totalHealth + bossEntry.health;
                 totalMaxHealth = totalMaxHealth + bossEntry.maxHealth;
             end;

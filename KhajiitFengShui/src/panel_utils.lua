@@ -201,6 +201,9 @@ function PanelUtils.applyControlAnchor(panel, left, top)
         return;
     end;
 
+    -- Disable clamping to allow positioning at screen edges
+    PanelUtils.disableClamping(control);
+
     local definition = panel.definition or {};
     local point = definition.anchorPoint or TOPLEFT;
     local relativePoint = definition.anchorRelativePoint or point;
@@ -490,6 +493,18 @@ local function convertMoveablePositionToAnchor(position, gridSize)
     return point, point, offsetX, offsetY;
 end;
 
+---Disables screen clamping for a control to allow edge positioning
+---@param control userdata?
+function PanelUtils.disableClamping(control)
+    if not control then
+        return;
+    end;
+    -- Disable clamping to allow positioning at screen edges
+    if control.SetClampedToScreen then
+        control:SetClampedToScreen(false);
+    end;
+end;
+
 ---Applies control anchor from moveable position data
 ---@param panel KhajiitFengShuiPanel?
 ---@param position KFS_Position?
@@ -504,6 +519,9 @@ function PanelUtils.applyControlAnchorFromPosition(panel, position, gridSize)
         return;
     end;
 
+    -- Disable clamping to allow positioning at screen edges
+    PanelUtils.disableClamping(control);
+
     local definition = panel.definition or {};
     local applyAnchor = definition.anchorApply;
 
@@ -514,7 +532,7 @@ function PanelUtils.applyControlAnchorFromPosition(panel, position, gridSize)
         return;
     end;
 
-    local point, relativePoint, offsetX, offsetY = convertMoveablePositionToAnchor(position, gridSize);
+    local point, relativePoint = convertMoveablePositionToAnchor(position, gridSize);
 
     local definitionPoint = definition.anchorPoint;
     local definitionRelativePoint = definition.anchorRelativePoint or definitionPoint;
@@ -527,7 +545,7 @@ function PanelUtils.applyControlAnchorFromPosition(panel, position, gridSize)
     end;
 
     local left, top = PanelUtils.getAnchorPosition(panel.handler);
-    offsetX, offsetY = computeRelativeOffsets(control, point, relativePoint, left, top, definition);
+    local offsetX, offsetY = computeRelativeOffsets(control, point, relativePoint, left, top, definition);
 
     local anchor = ZO_Anchor:New(point, GuiRoot, relativePoint, offsetX, offsetY);
     anchor:Set(control);

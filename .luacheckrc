@@ -19,11 +19,13 @@ read_globals =
     "zo_clamp",
     "zo_max",
     "zo_floatsAreEqual",
+    "zo_floor",
     "IsInGamepadPreferredMode",
     "GetEventManager",
     "SecurePostHook",
     "PushActionLayerByName",
     "RemoveActionLayerByName",
+    "SafeAddVersion",
 
     -- Standard Lua globals
     "_G",
@@ -36,6 +38,10 @@ read_globals =
     "SCENE_MANAGER",
     "KEYBIND_STRIP",
     "CALLBACK_MANAGER",
+    "WINDOW_MANAGER",
+    "BOSS_BAR",
+    "RETICLE",
+    "CENTER_SCREEN_ANNOUNCE",
 
     -- ESO API constants - Combat mechanics
     "COMBAT_MECHANIC_FLAGS_HEALTH",
@@ -119,9 +125,11 @@ read_globals =
     "CT_LINE",
     "CT_BACKDROP",
     "CT_LABEL",
+    "CT_CONTROL",
 
     -- ESO API constants - Draw layers
     "DL_OVERLAY",
+    "DL_CONTROLS",
 
     -- ESO API constants - Draw tiers
     "DT_LOW",
@@ -164,6 +172,8 @@ read_globals =
     "ZO_KeybindStripGamepadBackground",
     "ZO_KeybindStripGamepadBackgroundTexture",
     "ZO_SavedVars",
+    "ZO_StatusBar_SmoothTransition",
+    "ZO_FormatResourceBarCurrentAndMax",
 
     -- String ID constants (created via ZO_CreateStringId)
     "KFS_SETTINGS",
@@ -237,6 +247,19 @@ read_globals =
     "KFS_KEYBIND_PREVIOUS_PANEL",
     "KFS_KEYBIND_NEXT_PANEL",
     "KFS_KEYBIND_TOGGLE_LABELS",
+    "KFS_ENABLE_PANEL",
+    "KFS_ENABLE_PANEL_DESC",
+    "KFS_ENABLE_BOSS_BAR",
+    "KFS_ENABLE_BOSS_BAR_DESC_RELOAD",
+    "KFS_ENABLE_RETICLE",
+    "KFS_ENABLE_RETICLE_DESC_RELOAD",
+    "KFS_LABEL_PET_GROUP",
+    "KFS_LABEL_CENTER_ANNOUNCE",
+    "KFS_LABEL_STEALTH_ICON",
+    "KFS_LABEL_RETICLE_ICON",
+    "KFS_LABEL_DIALOGUE_WINDOW",
+    "KFS_LABEL_RAM_SIEGE",
+    "KFS_LABEL_QUEST_TIMER",
 
     -- addons
     "LibCombatAlerts",
@@ -262,6 +285,13 @@ globals =
     "KFS_SettingsController",
     "KFS_PanelUtils",
     "KFS_PanelDefinitions",
+    "KhajiitFengShui",
+
+    -- Utility functions from functionUtility.lua (defined as globals)
+    "GenerateClosure",
+    "GenerateFlatClosure",
+    "IterateTables",
+    "IteratePools",
 
 }
 
@@ -269,5 +299,6 @@ globals =
 ignore =
 {
     "212", -- unused argument
+    "542", -- value assigned to variable is overwritten before use (intentional in panel_utils.lua)
 
 }
