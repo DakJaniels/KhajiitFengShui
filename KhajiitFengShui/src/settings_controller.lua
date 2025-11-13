@@ -168,10 +168,6 @@ end;
 
 ---Creates settings menu
 function SettingsController:CreateSettingsMenu()
-    if not LibHarvensAddonSettings then
-        return;
-    end;
-
     local settings = LibHarvensAddonSettings:AddAddon(GetString(KFS_SETTINGS),
                                                       {
                                                           allowDefaults = true;
