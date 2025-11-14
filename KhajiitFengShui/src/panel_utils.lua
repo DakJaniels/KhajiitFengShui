@@ -387,10 +387,59 @@ function PanelUtils.syncOverlaySize(panel)
         return;
     end;
 
-    local width = control.GetWidth and control:GetWidth() or 0;
-    local height = control.GetHeight and control:GetHeight() or 0;
+    -- For group/raid frames, use the actual game control dimensions but wrapper position
+    local isGroupFrame = false;
+    local gameControl = nil;
+    local panelId = panel.definition and panel.definition.id or "";
+
+    if panelId == "groupAnchorSmall" then
+        gameControl = GetControl("ZO_SmallGroupAnchorFrame");
+        isGroupFrame = true;
+    elseif panelId == "groupAnchorLarge1" then
+        gameControl = GetControl("ZO_LargeGroupAnchorFrame1");
+        isGroupFrame = true;
+    elseif panelId == "groupAnchorLarge2" then
+        gameControl = GetControl("ZO_LargeGroupAnchorFrame2");
+        isGroupFrame = true;
+    elseif panelId == "groupAnchorLarge3" then
+        gameControl = GetControl("ZO_LargeGroupAnchorFrame3");
+        isGroupFrame = true;
+    end;
+
+    -- Use game control dimensions if available, otherwise use wrapper dimensions
+    local width, height;
+    if isGroupFrame and gameControl then
+        width = gameControl:GetWidth() or 0;
+        height = gameControl:GetHeight() or 0;
+        -- Fallback to wrapper dimensions if game control dimensions are invalid
+        if width == 0 or height == 0 then
+            width = control:GetWidth() or 0;
+            height = control:GetHeight() or 0;
+        end;
+    else
+        width = control:GetWidth() or 0;
+        height = control:GetHeight() or 0;
+    end;
+
     local scale = control:GetTransformScale() or control:GetScale() or 1;
     overlay:SetDimensions(width * scale, height * scale);
+
+    -- For group/raid frames, sync overlay to game control using TOPLEFT anchor (like ZOS does)
+    -- ZOS anchors the anchor frames directly to GuiRoot using TOPLEFT, so we should match that
+    if isGroupFrame and gameControl then
+        -- Use game control's actual screen position (ZOS anchors these to GuiRoot, so GetLeft/GetTop should be correct)
+        local targetLeft = gameControl:GetLeft() or 0;
+        local targetTop = gameControl:GetTop() or 0;
+
+        overlay:ClearAnchors();
+        overlay:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, targetLeft, targetTop);
+    else
+        -- For other controls, use TOPLEFT anchor
+        local controlLeft = control:GetLeft() or 0;
+        local controlTop = control:GetTop() or 0;
+        overlay:ClearAnchors();
+        overlay:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, controlLeft, controlTop);
+    end;
 end;
 
 ---Sets overlay highlight color based on active state

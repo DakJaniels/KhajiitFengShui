@@ -172,6 +172,18 @@ function KhajiitFengShui:ApplyPanelScale(panel)
     if not panel or not self:IsMoverEnabled(panel.definition.id) then
         return;
     end;
+
+    -- For quest trackers, only apply scale if there's an explicit saved scale
+    local isQuestTracker = panel.definition.id == "questTracker" or panel.definition.id == "questTrackerGamepad";
+    if isQuestTracker then
+        local scales = self.savedVars and self.savedVars.scales;
+        local hasExplicitScale = scales and scales[panel.definition.id] and scales[panel.definition.id] > 0;
+        if not hasExplicitScale then
+            -- Don't apply scale to quest trackers unless user explicitly set one
+            return;
+        end;
+    end;
+
     PanelUtils.applyScale(panel, self:GetPanelScale(panel.definition.id));
 end;
 
@@ -263,6 +275,12 @@ function KhajiitFengShui:TryCreatePanel(definition)
     if panel.moverEnabled then
         self:CreateMover(panel);
     end;
+
+    -- Register quest tracker hooks when panel is created (for gamepad mode)
+    if definition.id == "questTrackerGamepad" then
+        self:EnsureQuestTrackerHooks();
+    end;
+
     if self.settingsController then
         self.settingsController:AddPanelSetting(panel);
     end;
@@ -337,6 +355,12 @@ function KhajiitFengShui:RefreshPanelState(panel)
     if panel.overlay then
         panel.overlay:SetHidden(not self:IsPanelVisible(panel));
         PanelUtils.setOverlayHighlight(panel, isActive);
+
+        -- Sync overlay size for group/raid frames to match actual dimensions
+        local panelId = panel.definition.id;
+        if panelId == "groupAnchorSmall" or panelId == "groupAnchorLarge1" or panelId == "groupAnchorLarge2" or panelId == "groupAnchorLarge3" then
+            PanelUtils.syncOverlaySize(panel);
+        end;
     end;
 
     -- Update label visibility
@@ -404,6 +428,9 @@ function KhajiitFengShui:EnsureGroupFrameHooks()
                 local scale = self:GetPanelScale(panelId);
                 panel.control:SetTransformScale(scale);
                 PanelUtils.enableInheritScaleRecursive(panel.control);
+
+                -- Sync overlay size and position to match actual frame dimensions after scale update
+                PanelUtils.syncOverlaySize(panel);
             end;
         end;
 
@@ -453,6 +480,65 @@ function KhajiitFengShui:EnsureGroupFrameHooks()
     self.groupFrameHooksRegistered = true;
 end;
 
+---Ensures quest tracker hooks are registered for gamepad mode
+function KhajiitFengShui:EnsureQuestTrackerHooks()
+    if self.questTrackerHooksRegistered then
+        return;
+    end;
+
+    if not IsInGamepadPreferredMode() then
+        return;
+    end;
+
+    local function reapplyQuestTrackerAnchors()
+        local panel = self.panelLookup and self.panelLookup["questTrackerGamepad"];
+        if panel and panel.definition then
+            local hasCustomPosition = self.savedVars and self.savedVars.positions and self.savedVars.positions["questTrackerGamepad"] ~= nil;
+            -- Reapply scale to ensure promo/house trackers are scaled correctly (only if explicit scale is set)
+            if panel.definition.scaleApply then
+                local scales = self.savedVars and self.savedVars.scales;
+                local hasExplicitScale = scales and scales["questTrackerGamepad"] and scales["questTrackerGamepad"] > 0;
+                if hasExplicitScale then
+                    local scale = self:GetPanelScale("questTrackerGamepad");
+                    panel.definition.scaleApply(panel, scale);
+                end;
+            end;
+            -- Always reapply anchors to handle promo visibility changes
+            if panel.definition.postApply then
+                panel.definition.postApply(panel.control, hasCustomPosition);
+            end;
+        end;
+    end;
+
+    -- Hook into quest tracker container show events to re-anchor promotional/house trackers
+    local questContainer = GetControl("ZO_FocusedQuestTrackerPanelContainer");
+    if questContainer then
+        questContainer:SetHandler("OnShow", function ()
+            zo_callLater(reapplyQuestTrackerAnchors, 50);
+        end);
+    end;
+
+    local zoneStoryContainer = GetControl("ZO_ZoneStoryTrackerContainer");
+    if zoneStoryContainer then
+        zoneStoryContainer:SetHandler("OnShow", function ()
+            zo_callLater(reapplyQuestTrackerAnchors, 50);
+        end);
+    end;
+
+    -- Hook into promo tracker show/hide to re-anchor house when promo appears/disappears
+    local promoTracker = GetControl("ZO_PromotionalEventTracker_TL");
+    if promoTracker then
+        promoTracker:SetHandler("OnShow", function ()
+            zo_callLater(reapplyQuestTrackerAnchors, 50);
+        end);
+        promoTracker:SetHandler("OnHide", function ()
+            zo_callLater(reapplyQuestTrackerAnchors, 50);
+        end);
+    end;
+
+    self.questTrackerHooksRegistered = true;
+end;
+
 ---Sets up a custom control wrapper for a game control
 ---@param customControlName string Name for the custom control
 ---@param gameControlName string Name of the game control to wrap
@@ -467,10 +553,23 @@ local function setupCustomControlWrapper(customControlName, gameControlName, wid
         customControl = WINDOW_MANAGER:CreateControl(customControlName, GuiRoot, CT_CONTROL);
         isNewControl = true;
     end;
-    customControl:SetDimensions(width, height);
-    customControl:SetDrawLayer(DL_CONTROLS);
 
     local gameControl = GetControl(gameControlName);
+    if gameControl then
+        -- For group/raid frames, use actual game control dimensions
+        if string.find(gameControlName, "GroupAnchorFrame") then
+            local gameWidth = gameControl:GetWidth() or width;
+            local gameHeight = gameControl:GetHeight() or height;
+            customControl:SetDimensions(gameWidth, gameHeight);
+        else
+            customControl:SetDimensions(width, height);
+        end;
+    else
+        customControl:SetDimensions(width, height);
+    end;
+
+    customControl:SetDrawLayer(DL_CONTROLS);
+
     if gameControl then
         -- Only set initial anchor if this is a new control
         if isNewControl and defaultAnchor then
@@ -683,6 +782,33 @@ function KhajiitFengShui:ApplySavedPosition(panel)
         return;
     end;
 
+    -- For quest trackers, ensure control has valid dimensions before applying position
+    local isQuestTracker = panel.definition.id == "questTracker" or panel.definition.id == "questTrackerGamepad";
+    if isQuestTracker then
+        local control = panel.control;
+        local controlWidth = control:GetWidth() or 0;
+        local controlHeight = control:GetHeight() or 0;
+
+        -- If dimensions are invalid, try to get from definition
+        if controlWidth == 0 or controlHeight == 0 then
+            local definition = panel.definition;
+            if definition.width then
+                controlWidth = ZO_Eval(definition.width, control, nil) or 300;
+            end;
+            if definition.height then
+                controlHeight = ZO_Eval(definition.height, control, nil) or 200;
+            end;
+        end;
+
+        -- If still invalid, delay application slightly
+        if controlWidth == 0 or controlHeight == 0 then
+            zo_callLater(function ()
+                             self:ApplySavedPosition(panel);
+                         end, 100);
+            return;
+        end;
+    end;
+
     local hasCustom = self.savedVars.positions[panel.definition.id] ~= nil;
     local handler = panel.handler;
     local savedPosition = self.savedVars.positions[panel.definition.id];
@@ -709,7 +835,8 @@ function KhajiitFengShui:ApplySavedPosition(panel)
         panel.definition.postApply(panel.control, hasCustom);
     end;
 
-    SyncOverlaySize(panel);
+    -- Sync overlay size and position to match control after applying saved position
+    PanelUtils.syncOverlaySize(panel);
 
     local message = self:BuildOverlayMessage(panel, panel.control:GetLeft(), panel.control:GetTop());
     UpdateOverlayLabel(panel, message);
@@ -918,6 +1045,9 @@ function KhajiitFengShui:OnMoveStop(panel, handler, newPos, isExplicitStop)
             panel.definition.postApply(panel.control, true);
         end;
 
+        -- Sync overlay position to match control position after moving
+        PanelUtils.syncOverlaySize(panel);
+
         local left, top = PanelUtils.getAnchorPosition(handler, true);
         local message = self:BuildOverlayMessage(panel, left, top);
         UpdateOverlayLabel(panel, message);
@@ -980,6 +1110,13 @@ function KhajiitFengShui:CreateMover(panel)
 
     PanelUtils.applySizing(panel.control, panel.definition.width, panel.definition.height);
     self:ApplySavedPosition(panel);
+
+    -- Sync overlay size for group/raid frames after creation
+    local panelId = panel.definition.id;
+    if panelId == "groupAnchorSmall" or panelId == "groupAnchorLarge1" or panelId == "groupAnchorLarge2" or panelId == "groupAnchorLarge3" then
+        PanelUtils.syncOverlaySize(panel);
+    end;
+
     if panel.definition.id == "compass" then
         self:EnsureCompassHook();
     end;
@@ -990,6 +1127,10 @@ function KhajiitFengShui:CreateMover(panel)
     or panel.definition.id == "groupAnchorLarge3"
     then
         self:EnsureGroupFrameHooks();
+    end;
+
+    if panel.definition.id == "questTrackerGamepad" then
+        self:EnsureQuestTrackerHooks();
     end;
 
     panel.moverEnabled = true;

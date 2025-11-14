@@ -25,16 +25,6 @@ function SettingsController:New(addon)
     return setmetatable(controller, self);
 end;
 
----Gets localized label for profile mode
----@param mode string
----@return string
-local function GetProfileModeLabel(mode)
-    if mode == "character" then
-        return GetString(KFS_PROFILE_CHARACTER);
-    end;
-    return GetString(KFS_PROFILE_ACCOUNT);
-end;
-
 ---Builds position text for panel
 ---@param panel KhajiitFengShuiPanel
 ---@return string
@@ -199,56 +189,37 @@ function SettingsController:CreateSettingsMenu()
     };
     controlCount = controlCount + 1;
 
-    if ZO_IsConsoleUI() then
-        controls[controlCount] =
+    controls[controlCount] =
+    {
+        type = LibHarvensAddonSettings.ST_DROPDOWN;
+        label = GetString(KFS_PROFILE_MODE);
+        tooltip = GetString(KFS_PROFILE_MODE_DESC_RELOAD);
+        default = GetString(KFS_PROFILE_ACCOUNT);
+        items =
         {
-            type = LibHarvensAddonSettings.ST_BUTTON;
-            label = function ()
-                local currentMode = GetProfileModeLabel(self.addon:GetProfileMode());
-                return string.format("%s: %s", GetString(KFS_PROFILE_MODE), currentMode);
-            end;
-            tooltip = GetString(KFS_PROFILE_MODE_DESC_RELOAD);
-            buttonText = GetString(KFS_PROFILE_MODE_TOGGLE);
-            clickHandler = function ()
-                local nextMode = self.addon:GetProfileMode() == "account" and "character" or "account";
-                self.addon:SetProfileMode(nextMode);
-                ReloadUI("ingame");
-            end;
-        };
-        controlCount = controlCount + 1;
-    else
-        controls[controlCount] =
-        {
-            type = LibHarvensAddonSettings.ST_DROPDOWN;
-            label = GetString(KFS_PROFILE_MODE);
-            tooltip = GetString(KFS_PROFILE_MODE_DESC_RELOAD);
-            default = GetString(KFS_PROFILE_ACCOUNT);
-            items =
             {
-                {
-                    name = GetString(KFS_PROFILE_ACCOUNT);
-                    data = "account";
-                };
-                {
-                    name = GetString(KFS_PROFILE_CHARACTER);
-                    data = "character";
-                };
+                name = GetString(KFS_PROFILE_ACCOUNT);
+                data = "account";
             };
-            getFunction = function ()
-                local mode = self.addon:GetProfileMode();
-                if mode == "account" then
-                    return GetString(KFS_PROFILE_ACCOUNT);
-                else
-                    return GetString(KFS_PROFILE_CHARACTER);
-                end;
-            end;
-            setFunction = function (_, _, itemData)
-                self.addon:SetProfileMode(itemData or "account");
-                ReloadUI("ingame");
-            end;
+            {
+                name = GetString(KFS_PROFILE_CHARACTER);
+                data = "character";
+            };
         };
-        controlCount = controlCount + 1;
-    end;
+        getFunction = function ()
+            local mode = self.addon:GetProfileMode();
+            if mode == "account" then
+                return GetString(KFS_PROFILE_ACCOUNT);
+            else
+                return GetString(KFS_PROFILE_CHARACTER);
+            end;
+        end;
+        setFunction = function (_, _, itemData)
+            self.addon:SetProfileMode(itemData or "account");
+            ReloadUI("ingame");
+        end;
+    };
+    controlCount = controlCount + 1;
 
     controls[controlCount] =
     {

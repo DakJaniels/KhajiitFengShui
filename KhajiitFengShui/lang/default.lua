@@ -66,6 +66,7 @@ local strings =
     KFS_LABEL_GROUP_LARGE_1 = "Raid Frames Column 1";
     KFS_LABEL_GROUP_LARGE_2 = "Raid Frames Column 2";
     KFS_LABEL_GROUP_LARGE_3 = "Raid Frames Column 3";
+    KFS_LABEL_QUEST_TRACKER = "Quest Tracker";
     KFS_LABEL_PLAYER_HEALTH = "Player Health Bar";
     KFS_LABEL_PLAYER_MAGICKA = "Player Magicka Bar";
     KFS_LABEL_PLAYER_STAMINA = "Player Stamina Bar";

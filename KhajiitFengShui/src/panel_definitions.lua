@@ -424,19 +424,17 @@ local definitions =
             return GetControl("KhajiitFengShui_CombatTips") ~= nil;
         end;
         preApply = function (control, hasCustomPosition)
-            -- Set initial opacity to 0 on game control to avoid white pixel showing (similar to Azurah)
             local gameControl = GetControl("ZO_ActiveCombatTipsTip");
             if gameControl then
                 gameControl:SetAlpha(0);
             end;
-            -- If no custom position, set anchor to center
+
             if not hasCustomPosition and gameControl then
                 gameControl:ClearAnchors();
                 gameControl:SetAnchor(CENTER, GuiRoot, CENTER, 0, 0);
             end;
         end;
         postApply = function (control, hasCustomPosition)
-            -- Apply style after position/scale changes
             if ACTIVE_COMBAT_TIP_SYSTEM and ACTIVE_COMBAT_TIP_SYSTEM.ApplyStyle then
                 ACTIVE_COMBAT_TIP_SYSTEM:ApplyStyle();
             end;
@@ -447,6 +445,10 @@ local definitions =
         controlName = "KhajiitFengShui_GroupSmall";
         label = KFS_LABEL_GROUP_SMALL;
         width = function ()
+            local gameControl = GetControl("ZO_SmallGroupAnchorFrame");
+            if gameControl then
+                return gameControl:GetWidth() or 260;
+            end;
             local control = GetControl("KhajiitFengShui_GroupSmall");
             if control then
                 return control:GetWidth() or 260;
@@ -454,6 +456,10 @@ local definitions =
             return 260;
         end;
         height = function ()
+            local gameControl = GetControl("ZO_SmallGroupAnchorFrame");
+            if gameControl then
+                return gameControl:GetHeight() or 200;
+            end;
             local control = GetControl("KhajiitFengShui_GroupSmall");
             if control then
                 return control:GetHeight() or 200;
@@ -466,12 +472,24 @@ local definitions =
         scaleApply = function (panel, scale)
             applyGroupFrameScale(panel, scale, "ZO_SmallGroupAnchorFrame");
         end;
+        postApply = function (control, hasCustomPosition)
+            if KhajiitFengShui and control then
+                local panel = KhajiitFengShui.panelLookup and KhajiitFengShui.panelLookup["groupAnchorSmall"];
+                if panel then
+                    PanelUtils.syncOverlaySize(panel);
+                end;
+            end;
+        end;
     };
     {
         id = "groupAnchorLarge1";
         controlName = "KhajiitFengShui_GroupLarge1";
         label = KFS_LABEL_GROUP_LARGE_1;
         width = function ()
+            local gameControl = GetControl("ZO_LargeGroupAnchorFrame1");
+            if gameControl then
+                return gameControl:GetWidth() or 260;
+            end;
             local control = GetControl("KhajiitFengShui_GroupLarge1");
             if control then
                 return control:GetWidth() or 260;
@@ -479,6 +497,10 @@ local definitions =
             return 260;
         end;
         height = function ()
+            local gameControl = GetControl("ZO_LargeGroupAnchorFrame1");
+            if gameControl then
+                return gameControl:GetHeight() or 200;
+            end;
             local control = GetControl("KhajiitFengShui_GroupLarge1");
             if control then
                 return control:GetHeight() or 200;
@@ -491,12 +513,24 @@ local definitions =
         scaleApply = function (panel, scale)
             applyGroupFrameScale(panel, scale, "ZO_LargeGroupAnchorFrame1");
         end;
+        postApply = function (control, hasCustomPosition)
+            if KhajiitFengShui and control then
+                local panel = KhajiitFengShui.panelLookup and KhajiitFengShui.panelLookup["groupAnchorLarge1"];
+                if panel then
+                    PanelUtils.syncOverlaySize(panel);
+                end;
+            end;
+        end;
     };
     {
         id = "groupAnchorLarge2";
         controlName = "KhajiitFengShui_GroupLarge2";
         label = KFS_LABEL_GROUP_LARGE_2;
         width = function ()
+            local gameControl = GetControl("ZO_LargeGroupAnchorFrame2");
+            if gameControl then
+                return gameControl:GetWidth() or 260;
+            end;
             local control = GetControl("KhajiitFengShui_GroupLarge2");
             if control then
                 return control:GetWidth() or 260;
@@ -504,6 +538,10 @@ local definitions =
             return 260;
         end;
         height = function ()
+            local gameControl = GetControl("ZO_LargeGroupAnchorFrame2");
+            if gameControl then
+                return gameControl:GetHeight() or 200;
+            end;
             local control = GetControl("KhajiitFengShui_GroupLarge2");
             if control then
                 return control:GetHeight() or 200;
@@ -516,12 +554,24 @@ local definitions =
         scaleApply = function (panel, scale)
             applyGroupFrameScale(panel, scale, "ZO_LargeGroupAnchorFrame2");
         end;
+        postApply = function (control, hasCustomPosition)
+            if KhajiitFengShui and control then
+                local panel = KhajiitFengShui.panelLookup and KhajiitFengShui.panelLookup["groupAnchorLarge2"];
+                if panel then
+                    PanelUtils.syncOverlaySize(panel);
+                end;
+            end;
+        end;
     };
     {
         id = "groupAnchorLarge3";
         controlName = "KhajiitFengShui_GroupLarge3";
         label = KFS_LABEL_GROUP_LARGE_3;
         width = function ()
+            local gameControl = GetControl("ZO_LargeGroupAnchorFrame3");
+            if gameControl then
+                return gameControl:GetWidth() or 260;
+            end;
             local control = GetControl("KhajiitFengShui_GroupLarge3");
             if control then
                 return control:GetWidth() or 260;
@@ -529,6 +579,10 @@ local definitions =
             return 260;
         end;
         height = function ()
+            local gameControl = GetControl("ZO_LargeGroupAnchorFrame3");
+            if gameControl then
+                return gameControl:GetHeight() or 200;
+            end;
             local control = GetControl("KhajiitFengShui_GroupLarge3");
             if control then
                 return control:GetHeight() or 200;
@@ -541,6 +595,14 @@ local definitions =
         scaleApply = function (panel, scale)
             applyGroupFrameScale(panel, scale, "ZO_LargeGroupAnchorFrame3");
         end;
+        postApply = function (control, hasCustomPosition)
+            if KhajiitFengShui and control then
+                local panel = KhajiitFengShui.panelLookup and KhajiitFengShui.panelLookup["groupAnchorLarge3"];
+                if panel then
+                    PanelUtils.syncOverlaySize(panel);
+                end;
+            end;
+        end;
     };
     {
         id = "petGroup";
@@ -548,6 +610,151 @@ local definitions =
         label = KFS_LABEL_PET_GROUP;
         width = 260;
         height = 200;
+    };
+    {
+        id = "questTracker";
+        controlName = "ZO_FocusedQuestTrackerPanel";
+        label = KFS_LABEL_QUEST_TRACKER;
+        anchorPoint = BOTTOMRIGHT;
+        anchorRelativePoint = BOTTOMRIGHT;
+        width = function ()
+            local control = GetControl("ZO_FocusedQuestTrackerPanel");
+            if control then
+                return control:GetWidth() or 300;
+            end;
+            return 300;
+        end;
+        height = function ()
+            local control = GetControl("ZO_FocusedQuestTrackerPanel");
+            if control then
+                return control:GetHeight() or 200;
+            end;
+            return 200;
+        end;
+        condition = function ()
+            return not IsInGamepadPreferredMode() and GetControl("ZO_FocusedQuestTrackerPanel") ~= nil;
+        end;
+        scaleApply = function (panel, scale)
+            local control = panel and panel.control;
+            if not control then
+                return;
+            end;
+            -- Apply scale to quest tracker panel and ensure children inherit scale
+            PanelUtils.enableInheritScaleRecursive(control);
+            control:SetTransformScale(scale);
+
+            -- Also scale the container if it exists (similar to how buff controls work)
+            local container = GetControl("ZO_FocusedQuestTrackerPanelContainer");
+            if container then
+                container:SetInheritScale(true);
+                PanelUtils.enableInheritScaleRecursive(container);
+                container:SetTransformScale(scale);
+            end;
+        end;
+    };
+    {
+        id = "questTrackerGamepad";
+        controlName = "ZO_FocusedQuestTrackerPanelContainerQuestContainer";
+        label = KFS_LABEL_QUEST_TRACKER;
+        anchorPoint = BOTTOMRIGHT;
+        anchorRelativePoint = BOTTOMRIGHT;
+        width = function ()
+            local control = GetControl("ZO_FocusedQuestTrackerPanelContainerQuestContainer");
+            if control then
+                return control:GetWidth() or 300;
+            end;
+            return 300;
+        end;
+        height = function ()
+            local control = GetControl("ZO_FocusedQuestTrackerPanelContainerQuestContainer");
+            if control then
+                return control:GetHeight() or 200;
+            end;
+            return 200;
+        end;
+        condition = function ()
+            return IsInGamepadPreferredMode() and GetControl("ZO_FocusedQuestTrackerPanelContainerQuestContainer") ~= nil;
+        end;
+        scaleApply = function (panel, scale)
+            local control = panel and panel.control;
+            if not control then
+                return;
+            end;
+
+            PanelUtils.enableInheritScaleRecursive(control);
+            control:SetTransformScale(scale);
+
+
+            local mainContainer = GetControl("ZO_FocusedQuestTrackerPanelContainer");
+            if mainContainer then
+                mainContainer:SetInheritScale(true);
+                PanelUtils.enableInheritScaleRecursive(mainContainer);
+                mainContainer:SetTransformScale(scale);
+            end;
+
+
+            if IsInGamepadPreferredMode() then
+                local zoneStoryTracker = GetControl("ZO_ZoneStoryTracker");
+                if zoneStoryTracker then
+                    PanelUtils.enableInheritScaleRecursive(zoneStoryTracker);
+                    zoneStoryTracker:SetTransformScale(scale);
+                end;
+
+
+                local promoTracker = GetControl("ZO_PromotionalEventTracker_TL");
+                if promoTracker then
+                    PanelUtils.enableInheritScaleRecursive(promoTracker);
+                    promoTracker:SetTransformScale(scale);
+                end;
+
+
+                local houseTracker = GetControl("ZO_HouseInformationTrackerTopLevel");
+                if houseTracker then
+                    PanelUtils.enableInheritScaleRecursive(houseTracker);
+                    houseTracker:SetTransformScale(scale);
+                end;
+            end;
+        end;
+        postApply = function (control, hasCustomPosition)
+            if hasCustomPosition and IsInGamepadPreferredMode() then
+                local questContainer = GetControl("ZO_FocusedQuestTrackerPanelContainerQuestContainer");
+                if not questContainer then
+                    questContainer = control;
+                end;
+
+                local zoneStoryTracker = GetControl("ZO_ZoneStoryTracker");
+                if zoneStoryTracker and questContainer then
+                    zoneStoryTracker:ClearAnchors();
+                    zoneStoryTracker:SetAnchor(BOTTOMRIGHT, questContainer, BOTTOMRIGHT, 0, 0);
+                    zoneStoryTracker:SetInheritScale(true);
+                end;
+
+
+                local anchorTarget = zoneStoryTracker or questContainer;
+
+
+                local promoTracker = GetControl("ZO_PromotionalEventTracker_TL");
+                local promoVisible = promoTracker and not promoTracker:IsHidden();
+
+                if promoTracker and anchorTarget then
+                    promoTracker:ClearAnchors();
+                    promoTracker:SetAnchor(BOTTOMRIGHT, anchorTarget, BOTTOMRIGHT, 0, 151);
+                    promoTracker:SetInheritScale(true);
+                end;
+
+                local houseTracker = GetControl("ZO_HouseInformationTrackerTopLevel");
+                if houseTracker then
+                    houseTracker:ClearAnchors();
+                    if promoVisible and promoTracker then
+                        local promoHeight = promoTracker:GetHeight() or 0;
+                        houseTracker:SetAnchor(BOTTOMRIGHT, promoTracker, BOTTOMRIGHT, 0, promoHeight);
+                    else
+                        houseTracker:SetAnchor(BOTTOMRIGHT, anchorTarget, BOTTOMRIGHT, 0, 151);
+                    end;
+                    houseTracker:SetInheritScale(true);
+                end;
+            end;
+        end;
     };
     {
         id = "centerAnnounce";
