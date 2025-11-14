@@ -149,9 +149,9 @@ local definitions =
             return GetControl("KhajiitFengShui_ObjectiveMeter") ~= nil;
         end;
         postApply = function (control)
-            control = GetControl("ZO_ObjectiveCaptureMeter");
-            if control and ZO_ObjectiveCaptureMeterFrame then
-                ZO_ObjectiveCaptureMeterFrame:SetAnchor(BOTTOM, control, BOTTOM, 0, 0);
+            local gameControl = GetControl("ZO_ObjectiveCaptureMeter");
+            if gameControl and ZO_ObjectiveCaptureMeterFrame then
+                ZO_ObjectiveCaptureMeterFrame:SetAnchor(BOTTOM, gameControl, BOTTOM, 0, 0);
             end;
         end;
     };
@@ -339,17 +339,17 @@ local definitions =
             return GetControl("ZO_TargetUnitFramereticleover") ~= nil;
         end;
         postApply = function (control, hasCustomPosition)
-            control = ZO_TargetUnitFrame;
-            if not control then
+            local targetFrame = ZO_TargetUnitFrame;
+            if not targetFrame then
                 return;
             end;
 
-            if control.ApplyPlatformStyle then
-                control:ApplyPlatformStyle();
+            if targetFrame.ApplyPlatformStyle then
+                targetFrame:ApplyPlatformStyle();
             end;
 
             if hasCustomPosition then
-                control:SetMovingTargetFrame(true);
+                targetFrame:SetMovingTargetFrame(true);
             end;
         end;
     };
