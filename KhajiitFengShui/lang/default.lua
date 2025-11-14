@@ -88,6 +88,9 @@ local strings =
     KFS_LABEL_QUEST_TIMER = "Quest Timer";
     KFS_LABEL_ZONE_STORY = "Zone Story Tracker";
     KFS_LABEL_PROMOTIONAL_EVENT = "Promotional Event Tracker";
+    KFS_LABEL_HOUSE_INFORMATION = "House Information Tracker";
+    KFS_LABEL_ACTIVITY_TRACKER = "Activity Tracker";
+    KFS_LABEL_READY_CHECK = "Ready Check Tracker";
 };
 
 for stringId, stringValue in pairs(strings) do

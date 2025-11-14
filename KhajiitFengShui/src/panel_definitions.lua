@@ -99,26 +99,46 @@ local definitions =
         controlName = "ZO_FocusedQuestTrackerPanel";
         label = KFS_LABEL_QUEST;
         height = 200;
-        anchorPoint = BOTTOMRIGHT;
-        anchorRelativePoint = BOTTOMRIGHT;
-    };
-    {
-        id = "zoneStory";
-        controlName = "ZO_ZoneStoryTracker";
-        label = KFS_LABEL_ZONE_STORY;
-        height = 200;
-        anchorPoint = BOTTOMRIGHT;
-        anchorRelativePoint = BOTTOMRIGHT;
-    };
-    {
-        id = "promotionalEvent";
-        controlName = "ZO_PromotionalEventTracker_TL";
-        label = KFS_LABEL_PROMOTIONAL_EVENT;
-        height = 200;
         condition = function ()
-            return GetControl("ZO_PromotionalEventTracker_TL") ~= nil;
+            return not IsInGamepadPreferredMode();
         end;
     };
+    {
+        id = "questGamepad";
+        controlName = "ZO_FocusedQuestTrackerPanel";
+        label = KFS_LABEL_QUEST;
+        height = 200;
+        condition = function ()
+            return IsInGamepadPreferredMode() and GetControl("ZO_FocusedQuestTrackerPanel") ~= nil;
+        end;
+        postApply = function (control, hasCustomPosition)
+            if control and hasCustomPosition then
+                -- Anchor Container to the overlay so it follows when we move the overlay
+                local panel = KhajiitFengShui and KhajiitFengShui.panelLookup and KhajiitFengShui.panelLookup.questGamepad;
+                local overlay = panel and panel.overlay;
+                if overlay then
+                    local container = GetControl("ZO_FocusedQuestTrackerPanelContainerQuestContainer");
+                    if container then
+                        container:ClearAnchors();
+                        container:SetAnchor(TOPLEFT, overlay, TOPLEFT, 0, 0);
+                    end;
+                end;
+            end;
+        end;
+        scaleApply = function (panel, scale)
+            local control = panel and panel.control;
+            if not control then
+                return;
+            end;
+            PanelUtils.enableInheritScaleRecursive(control);
+            control:SetTransformScale(scale);
+            local container = GetControl("ZO_FocusedQuestTrackerPanelContainerQuestContainer");
+            if container then
+                container:SetTransformScale(scale);
+                PanelUtils.enableInheritScaleRecursive(container);
+            end;
+        end;
+    };   
     {
         id = "battleground";
         controlName = "ZO_BattlegroundHUDFragmentTopLevel";
@@ -353,10 +373,18 @@ local definitions =
     };
     {
         id = "endlessDungeon";
-        controlName = "ZO_EndDunHUDTrackerContainer";
+        controlName = "ZO_EndDunHUDTracker";
         label = KFS_LABEL_ENDLESS_DUNGEON;
-        width = 230;
-        height = 100;
+        width = 128;
+        height = 64;
+        condition = function ()
+            return GetControl("ZO_EndDunHUDTracker") ~= nil;
+        end;
+        postApply = function (control, hasCustomPosition)
+            if control then
+                control:SetDimensionConstraints(128, 64);
+            end;
+        end;
     };
     {
         id = "reticle";
@@ -634,7 +662,47 @@ local definitions =
         width = 128;
         height = 128;
         condition = function ()
-            return GetControl("ZO_FocusedQuestTrackerPanelTimerAnchor") ~= nil;
+            return IsInGamepadPreferredMode() and GetControl("ZO_FocusedQuestTrackerPanelTimerAnchor") ~= nil;
+        end;
+    };
+    {
+        id = "zoneStoryGamepad";
+        controlName = "ZO_ZoneStoryTrackerContainer";
+        label = KFS_LABEL_ZONE_STORY;
+        condition = function ()
+            return IsInGamepadPreferredMode() and GetControl("ZO_ZoneStoryTrackerContainer") ~= nil;
+        end;
+    };
+    {
+        id = "promotionalEventGamepad";
+        controlName = "ZO_PromotionalEventTracker_TLContainer";
+        label = KFS_LABEL_PROMOTIONAL_EVENT;
+        condition = function ()
+            return IsInGamepadPreferredMode() and GetControl("ZO_PromotionalEventTracker_TLContainer") ~= nil;
+        end;
+    };
+    {
+        id = "houseInformationGamepad";
+        controlName = "ZO_HouseInformationTrackerTopLevelContainer";
+        label = KFS_LABEL_HOUSE_INFORMATION;
+        condition = function ()
+            return IsInGamepadPreferredMode() and GetControl("ZO_HouseInformationTrackerTopLevelContainer") ~= nil;
+        end;
+    };
+    {
+        id = "activityTrackerGamepad";
+        controlName = "ZO_ActivityTrackerContainer";
+        label = KFS_LABEL_ACTIVITY_TRACKER;
+        condition = function ()
+            return IsInGamepadPreferredMode() and GetControl("ZO_ActivityTrackerContainer") ~= nil;
+        end;
+    };
+    {
+        id = "readyCheckGamepad";
+        controlName = "ZO_ReadyCheckTrackerTopLevelContainer";
+        label = KFS_LABEL_READY_CHECK;
+        condition = function ()
+            return IsInGamepadPreferredMode() and GetControl("ZO_ReadyCheckTrackerTopLevelContainer") ~= nil;
         end;
     };
     {
@@ -729,6 +797,19 @@ local definitions =
         condition = function ()
             return GetControl("KhajiitFengShui_PlayerBuffs") ~= nil;
         end;
+        scaleApply = function (panel, scale)
+            local control = panel and panel.control;
+            if not control then
+                return;
+            end;
+            PanelUtils.enableInheritScaleRecursive(control);
+            control:SetTransformScale(scale);
+            local buffContainer = GetControl("ZO_BuffDebuffTopLevelSelfContainer");
+            if buffContainer then
+                buffContainer:SetTransformScale(scale);
+                PanelUtils.enableInheritScaleRecursive(buffContainer);
+            end;
+        end;
     };
     {
         id = "buffTarget";
@@ -752,6 +833,19 @@ local definitions =
         anchorRelativePoint = BOTTOM;
         condition = function ()
             return GetControl("KhajiitFengShui_TargetDebuffs") ~= nil;
+        end;
+        scaleApply = function (panel, scale)
+            local control = panel and panel.control;
+            if not control then
+                return;
+            end;
+            PanelUtils.enableInheritScaleRecursive(control);
+            control:SetTransformScale(scale);
+            local buffContainer = GetControl("ZO_BuffDebuffTopLevelTargetContainer");
+            if buffContainer then
+                buffContainer:SetTransformScale(scale);
+                PanelUtils.enableInheritScaleRecursive(buffContainer);
+            end;
         end;
     };
     {
