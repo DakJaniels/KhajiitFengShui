@@ -1,59 +1,6 @@
 local AttributeScaler = KhajiitFengShui.AttributeScaler;
 local PanelUtils = KhajiitFengShui.PanelUtils;
-
----Applies scale to a group frame panel (custom control + game control)
----@param panel KhajiitFengShuiPanel
----@param scale number
----@param gameControlName string Name of the original game control
-local function applyGroupFrameScale(panel, scale, gameControlName)
-    local control = panel and panel.control;
-    if not control then
-        return;
-    end;
-    -- Apply scale to custom control
-    PanelUtils.enableInheritScaleRecursive(control);
-    control:SetTransformScale(scale);
-    -- Ensure original game control inherits scale
-    local gameControl = GetControl(gameControlName);
-    if gameControl then
-        gameControl:SetInheritScale(true);
-        PanelUtils.enableInheritScaleRecursive(gameControl);
-    end;
-    -- Trigger group frame hooks reapply
-    if KhajiitFengShui and KhajiitFengShui.EnsureGroupFrameHooks then
-        KhajiitFengShui:EnsureGroupFrameHooks();
-        zo_callLater(function ()
-                         if KhajiitFengShui.groupFrameHooksRegistered then
-                             local groupPanelIds = { "groupAnchorSmall"; "groupAnchorLarge1"; "groupAnchorLarge2"; "groupAnchorLarge3"; };
-                             for _, panelId in ipairs(groupPanelIds) do
-                                 local groupPanel = KhajiitFengShui.panelLookup and KhajiitFengShui.panelLookup[panelId];
-                                 if groupPanel and groupPanel.control then
-                                     local panelScale = KhajiitFengShui:GetPanelScale(panelId);
-                                     groupPanel.control:SetTransformScale(panelScale);
-                                     PanelUtils.enableInheritScaleRecursive(groupPanel.control);
-                                 end;
-                             end;
-                             local unitFramesGroups = GetControl("ZO_UnitFramesGroups");
-                             if unitFramesGroups then
-                                 local maxScale = 1;
-                                 for _, panelId in ipairs(groupPanelIds) do
-                                     local groupPanel = KhajiitFengShui.panelLookup and KhajiitFengShui.panelLookup[panelId];
-                                     if groupPanel then
-                                         local panelScale = KhajiitFengShui:GetPanelScale(panelId);
-                                         if panelScale > maxScale then
-                                             maxScale = panelScale;
-                                         end;
-                                     end;
-                                 end;
-                                 if maxScale ~= 1 then
-                                     PanelUtils.enableInheritScaleRecursive(unitFramesGroups);
-                                     unitFramesGroups:SetTransformScale(maxScale);
-                                 end;
-                             end;
-                         end;
-                     end, 50);
-    end;
-end;
+local UnitFrameAnchors = KhajiitFengShui.UnitFrameAnchors;
 
 ---@class KhajiitFengShuiPanelDefinition
 ---@field id string Unique identifier for the panel
@@ -470,13 +417,13 @@ local definitions =
             return GetControl("KhajiitFengShui_GroupSmall") ~= nil;
         end;
         scaleApply = function (panel, scale)
-            applyGroupFrameScale(panel, scale, "ZO_SmallGroupAnchorFrame");
+            UnitFrameAnchors.ApplyScale(panel, scale);
         end;
         postApply = function (control, hasCustomPosition)
             if KhajiitFengShui and control then
                 local panel = KhajiitFengShui.panelLookup and KhajiitFengShui.panelLookup["groupAnchorSmall"];
                 if panel then
-                    PanelUtils.syncOverlaySize(panel);
+                    UnitFrameAnchors.SyncOverlaySize(panel);
                 end;
             end;
         end;
@@ -511,13 +458,13 @@ local definitions =
             return GetControl("KhajiitFengShui_GroupLarge1") ~= nil;
         end;
         scaleApply = function (panel, scale)
-            applyGroupFrameScale(panel, scale, "ZO_LargeGroupAnchorFrame1");
+            UnitFrameAnchors.ApplyScale(panel, scale);
         end;
         postApply = function (control, hasCustomPosition)
             if KhajiitFengShui and control then
                 local panel = KhajiitFengShui.panelLookup and KhajiitFengShui.panelLookup["groupAnchorLarge1"];
                 if panel then
-                    PanelUtils.syncOverlaySize(panel);
+                    UnitFrameAnchors.SyncOverlaySize(panel);
                 end;
             end;
         end;
@@ -552,13 +499,13 @@ local definitions =
             return GetControl("KhajiitFengShui_GroupLarge2") ~= nil;
         end;
         scaleApply = function (panel, scale)
-            applyGroupFrameScale(panel, scale, "ZO_LargeGroupAnchorFrame2");
+            UnitFrameAnchors.ApplyScale(panel, scale);
         end;
         postApply = function (control, hasCustomPosition)
             if KhajiitFengShui and control then
                 local panel = KhajiitFengShui.panelLookup and KhajiitFengShui.panelLookup["groupAnchorLarge2"];
                 if panel then
-                    PanelUtils.syncOverlaySize(panel);
+                    UnitFrameAnchors.SyncOverlaySize(panel);
                 end;
             end;
         end;
@@ -593,13 +540,13 @@ local definitions =
             return GetControl("KhajiitFengShui_GroupLarge3") ~= nil;
         end;
         scaleApply = function (panel, scale)
-            applyGroupFrameScale(panel, scale, "ZO_LargeGroupAnchorFrame3");
+            UnitFrameAnchors.ApplyScale(panel, scale);
         end;
         postApply = function (control, hasCustomPosition)
             if KhajiitFengShui and control then
                 local panel = KhajiitFengShui.panelLookup and KhajiitFengShui.panelLookup["groupAnchorLarge3"];
                 if panel then
-                    PanelUtils.syncOverlaySize(panel);
+                    UnitFrameAnchors.SyncOverlaySize(panel);
                 end;
             end;
         end;

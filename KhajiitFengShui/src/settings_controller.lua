@@ -32,7 +32,7 @@ local function BuildPositionText(panel)
     if not (panel and panel.handler) then
         return "N/A";
     end;
-    local left, top = PanelUtils.getAnchorPosition(panel.handler, true);
+    local left, top = PanelUtils.getAnchorPosition(panel.handler);
     return string.format("%d, %d", left, top);
 end;
 

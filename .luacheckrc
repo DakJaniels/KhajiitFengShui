@@ -82,6 +82,7 @@ read_globals =
     "EVENT_ADD_ON_LOADED",
     "EVENT_GROUP_UPDATE",
     "EVENT_GROUP_MEMBER_JOINED",
+    "EVENT_ACTIVE_COMPANION_STATE_CHANGED",
 
     -- ESO API constants - Event filters
     "REGISTER_FILTER_UNIT_TAG",

@@ -470,12 +470,12 @@ function PanelUtils.updateOverlayLabel(labelControl, message)
 end;
 
 ---Gets left and top position from handler
+---Note: LCA MoveableControl handles snapping, so we just get the position directly
 ---@param handler any
----@param snapToGrid boolean?
 ---@return number left
 ---@return number top
-function PanelUtils.getAnchorPosition(handler, snapToGrid)
-    local position = handler:GetLeftTopPosition(snapToGrid);
+function PanelUtils.getAnchorPosition(handler)
+    local position = handler:GetLeftTopPosition();
     return position.left or 0, position.top or 0;
 end;
 

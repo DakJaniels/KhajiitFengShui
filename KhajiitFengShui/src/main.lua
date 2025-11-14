@@ -18,6 +18,7 @@ local GridOverlay = KhajiitFengShui.GridOverlay;
 local EditModeController = KhajiitFengShui.EditModeController;
 local SettingsController = KhajiitFengShui.SettingsController;
 local AttributeScaler = KhajiitFengShui.AttributeScaler;
+local UnitFrameAnchors = KhajiitFengShui.UnitFrameAnchors;
 
 local ATTRIBUTE_SCALER_PANEL_IDS =
 {
@@ -229,7 +230,7 @@ function KhajiitFengShui:SetPanelScale(panelId, scale)
     end;
 
     if panel.handler then
-        local left, top = PanelUtils.getAnchorPosition(panel.handler, true);
+        local left, top = PanelUtils.getAnchorPosition(panel.handler);
         UpdateOverlayLabel(panel, self:BuildOverlayMessage(panel, left, top));
     end;
 end;
@@ -356,11 +357,8 @@ function KhajiitFengShui:RefreshPanelState(panel)
         panel.overlay:SetHidden(not self:IsPanelVisible(panel));
         PanelUtils.setOverlayHighlight(panel, isActive);
 
-        -- Sync overlay size for group/raid frames to match actual dimensions
-        local panelId = panel.definition.id;
-        if panelId == "groupAnchorSmall" or panelId == "groupAnchorLarge1" or panelId == "groupAnchorLarge2" or panelId == "groupAnchorLarge3" then
-            PanelUtils.syncOverlaySize(panel);
-        end;
+        -- Sync overlay size for unitframe anchors
+        UnitFrameAnchors.SyncOverlaySize(panel);
     end;
 
     -- Update label visibility
@@ -409,75 +407,7 @@ end;
 
 ---Ensures group frame hooks are registered
 function KhajiitFengShui:EnsureGroupFrameHooks()
-    if self.groupFrameHooksRegistered then
-        return;
-    end;
-
-    local function reapplyGroupFrameScales()
-        local groupPanelIds =
-        {
-            "groupAnchorSmall";
-            "groupAnchorLarge1";
-            "groupAnchorLarge2";
-            "groupAnchorLarge3";
-        };
-
-        for _, panelId in ipairs(groupPanelIds) do
-            local panel = self.panelLookup and self.panelLookup[panelId];
-            if panel and panel.control then
-                local scale = self:GetPanelScale(panelId);
-                panel.control:SetTransformScale(scale);
-                PanelUtils.enableInheritScaleRecursive(panel.control);
-
-                -- Sync overlay size and position to match actual frame dimensions after scale update
-                PanelUtils.syncOverlaySize(panel);
-            end;
-        end;
-
-        local unitFramesGroups = GetControl("ZO_UnitFramesGroups");
-        if unitFramesGroups then
-            local maxScale = 1;
-            for _, panelId in ipairs(groupPanelIds) do
-                local panel = self.panelLookup and self.panelLookup[panelId];
-                if panel then
-                    local scale = self:GetPanelScale(panelId);
-                    if scale > maxScale then
-                        maxScale = scale;
-                    end;
-                end;
-            end;
-            if maxScale ~= 1 then
-                PanelUtils.enableInheritScaleRecursive(unitFramesGroups);
-                unitFramesGroups:SetTransformScale(maxScale);
-            end;
-        end;
-    end;
-
-    local function scheduleReapply(delay)
-        zo_callLater(GenerateFlatClosure(reapplyGroupFrameScales), delay or 0);
-    end;
-
-    if SecurePostHook and ZO_UnitFrames_Manager then
-        SecurePostHook(
-            ZO_UnitFrames_Manager,
-            "UpdateGroupAnchorFrames",
-            GenerateFlatClosure(scheduleReapply, 200)
-        );
-    end;
-
-    em:RegisterForEvent(
-        self.name .. "_GROUP_UPDATE",
-        EVENT_GROUP_UPDATE,
-        GenerateFlatClosure(scheduleReapply, 50)
-    );
-
-    em:RegisterForEvent(
-        self.name .. "_GROUP_MEMBER_JOINED",
-        EVENT_GROUP_MEMBER_JOINED,
-        GenerateFlatClosure(scheduleReapply, 50)
-    );
-
-    self.groupFrameHooksRegistered = true;
+    UnitFrameAnchors.EnsureHooks(self);
 end;
 
 ---Ensures quest tracker hooks are registered for gamepad mode
@@ -556,14 +486,7 @@ local function setupCustomControlWrapper(customControlName, gameControlName, wid
 
     local gameControl = GetControl(gameControlName);
     if gameControl then
-        -- For group/raid frames, use actual game control dimensions
-        if string.find(gameControlName, "GroupAnchorFrame") then
-            local gameWidth = gameControl:GetWidth() or width;
-            local gameHeight = gameControl:GetHeight() or height;
-            customControl:SetDimensions(gameWidth, gameHeight);
-        else
-            customControl:SetDimensions(width, height);
-        end;
+        customControl:SetDimensions(width, height);
     else
         customControl:SetDimensions(width, height);
     end;
@@ -591,6 +514,9 @@ end;
 
 ---Sets up custom control wrappers for UI elements to enable proper positioning
 function KhajiitFengShui:SetupCustomControls()
+    -- Setup unitframe anchors first
+    UnitFrameAnchors.SetupAnchors();
+
     -- Create a custom control to hold the player buffs/debuffs
     setupCustomControlWrapper(
         "KhajiitFengShui_PlayerBuffs",
@@ -671,48 +597,6 @@ function KhajiitFengShui:SetupCustomControls()
         20,
         function (customControl)
             customControl:SetAnchor(CENTER, GuiRoot, BOTTOM, 0, -250);
-        end
-    );
-
-    -- Create a custom control for small group frame
-    setupCustomControlWrapper(
-        "KhajiitFengShui_GroupSmall",
-        "ZO_SmallGroupAnchorFrame",
-        260,
-        200,
-        function (customControl)
-            customControl:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, 50, 50);
-        end
-    );
-
-    -- Create custom controls for large group frames (raid)
-    setupCustomControlWrapper(
-        "KhajiitFengShui_GroupLarge1",
-        "ZO_LargeGroupAnchorFrame1",
-        260,
-        200,
-        function (customControl)
-            customControl:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, 50, 50);
-        end
-    );
-
-    setupCustomControlWrapper(
-        "KhajiitFengShui_GroupLarge2",
-        "ZO_LargeGroupAnchorFrame2",
-        260,
-        200,
-        function (customControl)
-            customControl:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, 50, 50);
-        end
-    );
-
-    setupCustomControlWrapper(
-        "KhajiitFengShui_GroupLarge3",
-        "ZO_LargeGroupAnchorFrame3",
-        260,
-        200,
-        function (customControl)
-            customControl:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, 50, 50);
         end
     );
 end;
@@ -816,14 +700,24 @@ function KhajiitFengShui:ApplySavedPosition(panel)
     if savedPosition then
         handler:UpdatePosition(savedPosition);
         local gridSize = self:GetSnapSize();
-        PanelUtils.applyControlAnchorFromPosition(panel, savedPosition, gridSize);
+        -- Use unitframe-specific anchor handling if this is a unitframe anchor
+        if UnitFrameAnchors.IsUnitFrameAnchor(panel.definition.id) then
+            UnitFrameAnchors.ApplyAnchor(panel, savedPosition);
+        else
+            PanelUtils.applyControlAnchorFromPosition(panel, savedPosition, gridSize);
+        end;
     else
         local left = panel.control:GetLeft();
         local top = panel.control:GetTop();
         local defaultPosition = { left = left; top = top };
         handler:UpdatePosition(defaultPosition);
         local gridSize = self:GetSnapSize();
-        PanelUtils.applyControlAnchorFromPosition(panel, defaultPosition, gridSize);
+        -- Use unitframe-specific anchor handling if this is a unitframe anchor
+        if UnitFrameAnchors.IsUnitFrameAnchor(panel.definition.id) then
+            UnitFrameAnchors.ApplyAnchor(panel, defaultPosition);
+        else
+            PanelUtils.applyControlAnchorFromPosition(panel, defaultPosition, gridSize);
+        end;
     end;
 
     if panel.definition.preApply then
@@ -1032,14 +926,21 @@ function KhajiitFengShui:OnMoveStop(panel, handler, newPos, isExplicitStop)
         or panel.definition.id == "playerStamina"
     )
     then
-        local left, top = PanelUtils.getAnchorPosition(handler, true);
+        local left, top = PanelUtils.getAnchorPosition(handler);
         self:UpdatePyramidLayoutFromPosition(panel.definition.id, left, top);
     else
         local position = newPos or handler:GetPosition(true);
         self.savedVars.positions[panel.definition.id] = PanelUtils.copyPosition(position);
 
+        -- Note: newPos is already snapped by LCA MoveableControl (snap happens before EVENT_CONTROL_MOVE_STOP)
         local gridSize = self:GetSnapSize();
-        PanelUtils.applyControlAnchorFromPosition(panel, position, gridSize);
+        -- Use unitframe-specific anchor handling if this is a unitframe anchor
+        if UnitFrameAnchors.IsUnitFrameAnchor(panel.definition.id) then
+            -- LCA already snapped the position, so don't pass gridSize
+            UnitFrameAnchors.ApplyAnchor(panel, position);
+        else
+            PanelUtils.applyControlAnchorFromPosition(panel, position, gridSize);
+        end;
 
         if panel.definition.postApply then
             panel.definition.postApply(panel.control, true);
@@ -1048,7 +949,7 @@ function KhajiitFengShui:OnMoveStop(panel, handler, newPos, isExplicitStop)
         -- Sync overlay position to match control position after moving
         PanelUtils.syncOverlaySize(panel);
 
-        local left, top = PanelUtils.getAnchorPosition(handler, true);
+        local left, top = PanelUtils.getAnchorPosition(handler);
         local message = self:BuildOverlayMessage(panel, left, top);
         UpdateOverlayLabel(panel, message);
     end;
@@ -1111,21 +1012,13 @@ function KhajiitFengShui:CreateMover(panel)
     PanelUtils.applySizing(panel.control, panel.definition.width, panel.definition.height);
     self:ApplySavedPosition(panel);
 
-    -- Sync overlay size for group/raid frames after creation
-    local panelId = panel.definition.id;
-    if panelId == "groupAnchorSmall" or panelId == "groupAnchorLarge1" or panelId == "groupAnchorLarge2" or panelId == "groupAnchorLarge3" then
-        PanelUtils.syncOverlaySize(panel);
-    end;
+    -- Sync overlay size for unitframe anchors after creation
+    UnitFrameAnchors.SyncOverlaySize(panel);
 
     if panel.definition.id == "compass" then
         self:EnsureCompassHook();
     end;
-    if
-       panel.definition.id == "groupAnchorSmall"
-    or panel.definition.id == "groupAnchorLarge1"
-    or panel.definition.id == "groupAnchorLarge2"
-    or panel.definition.id == "groupAnchorLarge3"
-    then
+    if UnitFrameAnchors.IsUnitFrameAnchor(panel.definition.id) then
         self:EnsureGroupFrameHooks();
     end;
 
