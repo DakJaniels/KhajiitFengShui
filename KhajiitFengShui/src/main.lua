@@ -396,7 +396,6 @@ function KhajiitFengShui:EnsureGroupFrameHooks()
             "groupAnchorLarge1";
             "groupAnchorLarge2";
             "groupAnchorLarge3";
-            "groupAnchorLarge4";
         };
 
         for _, panelId in ipairs(groupPanelIds) do
@@ -460,7 +459,8 @@ end;
 ---@param width number Width of the custom control
 ---@param height number Height of the custom control
 ---@param defaultAnchor fun(customControl: userdata)? Function to set default anchor for new controls
-local function setupCustomControlWrapper(customControlName, gameControlName, width, height, defaultAnchor)
+---@param useAnchorFill boolean? If true, use AnchorFill instead of CENTER anchor (for TopLevelControls)
+local function setupCustomControlWrapper(customControlName, gameControlName, width, height, defaultAnchor, useAnchorFill)
     local customControl = _G[customControlName];
     local isNewControl = false;
     if not customControl then
@@ -478,7 +478,13 @@ local function setupCustomControlWrapper(customControlName, gameControlName, wid
         end;
         -- Always ensure the original container is anchored to our custom control
         gameControl:ClearAnchors();
-        gameControl:SetAnchor(CENTER, customControl, CENTER, 0, 0);
+        if useAnchorFill then
+            -- For TopLevelControls that use AnchorFill, make them fill our custom control
+            gameControl:SetAnchor(TOPLEFT, customControl, TOPLEFT, 0, 0);
+            gameControl:SetAnchor(BOTTOMRIGHT, customControl, BOTTOMRIGHT, 0, 0);
+        else
+            gameControl:SetAnchor(CENTER, customControl, CENTER, 0, 0);
+        end;
         -- Ensure game control inherits scale from custom control
         gameControl:SetInheritScale(true);
     end;
@@ -982,10 +988,10 @@ function KhajiitFengShui:CreateMover(panel)
     or panel.definition.id == "groupAnchorLarge1"
     or panel.definition.id == "groupAnchorLarge2"
     or panel.definition.id == "groupAnchorLarge3"
-    or panel.definition.id == "groupAnchorLarge4"
     then
         self:EnsureGroupFrameHooks();
     end;
+
     panel.moverEnabled = true;
 end;
 
@@ -2011,8 +2017,6 @@ function KhajiitFengShui:OnAddOnLoaded(event, addonName)
     self:ApplySnapSettings();
     self:RefreshSettingsAvailability();
 
-    zo_callLater(GenerateFlatClosure(self.InitializeQuestTrackerHandlers, self), 200);
-
     self.editModeController = EditModeController:New(self);
     self.editModeController:Initialize();
 
@@ -2030,26 +2034,6 @@ function KhajiitFengShui:OnAddOnLoaded(event, addonName)
         EVENT_GAMEPAD_PREFERRED_MODE_CHANGED,
         GenerateFlatClosure(self.OnGamepadPreferredModeChanged, self)
     );
-end;
-
-function KhajiitFengShui:InitializeQuestTrackerHandlers()
-    if ZO_EndlessDungeonHUDTracker and SecurePostHook then
-        local addon = self;
-        SecurePostHook(ZO_EndlessDungeonHUDTracker, "RefreshAnchors", function()
-            local endlessPanel = addon.panelLookup and addon.panelLookup.endlessDungeon;
-            local endlessControl = GetControl("ZO_EndDunHUDTracker");
-            if endlessPanel and endlessControl then
-                if endlessPanel.definition and endlessPanel.definition.width and endlessPanel.definition.height then
-                    endlessControl:SetDimensionConstraints(endlessPanel.definition.width, endlessPanel.definition.height);
-                end;
-                zo_callLater(function()
-                    if endlessPanel and endlessPanel.handler then
-                        addon:ApplySavedPosition(endlessPanel);
-                    end;
-                end, 50);
-            end;
-        end);
-    end;
 end;
 
 ---Handles preferred mode changes to refresh keybinds

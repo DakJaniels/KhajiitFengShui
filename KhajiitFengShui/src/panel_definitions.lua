@@ -95,51 +95,6 @@ local definitions =
         height = 64;
     };
     {
-        id = "quest";
-        controlName = "ZO_FocusedQuestTrackerPanel";
-        label = KFS_LABEL_QUEST;
-        height = 200;
-        condition = function ()
-            return not IsInGamepadPreferredMode();
-        end;
-    };
-    {
-        id = "questGamepad";
-        controlName = "ZO_FocusedQuestTrackerPanel";
-        label = KFS_LABEL_QUEST;
-        height = 200;
-        condition = function ()
-            return IsInGamepadPreferredMode() and GetControl("ZO_FocusedQuestTrackerPanel") ~= nil;
-        end;
-        postApply = function (control, hasCustomPosition)
-            if control and hasCustomPosition then
-                -- Anchor Container to the overlay so it follows when we move the overlay
-                local panel = KhajiitFengShui and KhajiitFengShui.panelLookup and KhajiitFengShui.panelLookup.questGamepad;
-                local overlay = panel and panel.overlay;
-                if overlay then
-                    local container = GetControl("ZO_FocusedQuestTrackerPanelContainerQuestContainer");
-                    if container then
-                        container:ClearAnchors();
-                        container:SetAnchor(TOPLEFT, overlay, TOPLEFT, 0, 0);
-                    end;
-                end;
-            end;
-        end;
-        scaleApply = function (panel, scale)
-            local control = panel and panel.control;
-            if not control then
-                return;
-            end;
-            PanelUtils.enableInheritScaleRecursive(control);
-            control:SetTransformScale(scale);
-            local container = GetControl("ZO_FocusedQuestTrackerPanelContainerQuestContainer");
-            if container then
-                container:SetTransformScale(scale);
-                PanelUtils.enableInheritScaleRecursive(container);
-            end;
-        end;
-    };
-    {
         id = "battleground";
         controlName = "ZO_BattlegroundHUDFragmentTopLevel";
         label = KFS_LABEL_BATTLEGROUND;
@@ -372,21 +327,6 @@ local definitions =
         end;
     };
     {
-        id = "endlessDungeon";
-        controlName = "ZO_EndDunHUDTracker";
-        label = KFS_LABEL_ENDLESS_DUNGEON;
-        width = 128;
-        height = 64;
-        condition = function ()
-            return GetControl("ZO_EndDunHUDTracker") ~= nil;
-        end;
-        postApply = function (control, hasCustomPosition)
-            if control then
-                control:SetDimensionConstraints(128, 64);
-            end;
-        end;
-    };
-    {
         id = "reticle";
         controlName = "ZO_ReticleContainerInteract";
         label = KFS_LABEL_RETICLE;
@@ -603,16 +543,6 @@ local definitions =
         end;
     };
     {
-        id = "companionUnitFrame";
-        controlName = "ZO_CompanionUnitFramecompanion";
-        label = KFS_LABEL_COMPANION_UNIT_FRAME;
-        width = 260;
-        height = 200;
-        condition = function ()
-            return GetControl("ZO_CompanionUnitFramecompanion") ~= nil;
-        end;
-    };
-    {
         id = "petGroup";
         controlName = "PetGroupAnchorFrame";
         label = KFS_LABEL_PET_GROUP;
@@ -644,66 +574,9 @@ local definitions =
         label = KFS_LABEL_RETICLE_ICON;
     };
     {
-        id = "dialogueWindow";
-        controlName = "ZO_InteractWindowDivider";
-        label = KFS_LABEL_DIALOGUE_WINDOW;
-        width = 300;
-        height = 200;
-    };
-    {
         id = "ramSiege";
         controlName = "ZO_RamTopLevel";
         label = KFS_LABEL_RAM_SIEGE;
-    };
-    {
-        id = "questTimer";
-        controlName = "ZO_FocusedQuestTrackerPanelTimerAnchor";
-        label = KFS_LABEL_QUEST_TIMER;
-        width = 128;
-        height = 128;
-        condition = function ()
-            return IsInGamepadPreferredMode() and GetControl("ZO_FocusedQuestTrackerPanelTimerAnchor") ~= nil;
-        end;
-    };
-    {
-        id = "zoneStoryGamepad";
-        controlName = "ZO_ZoneStoryTrackerContainer";
-        label = KFS_LABEL_ZONE_STORY;
-        condition = function ()
-            return IsInGamepadPreferredMode() and GetControl("ZO_ZoneStoryTrackerContainer") ~= nil;
-        end;
-    };
-    {
-        id = "promotionalEventGamepad";
-        controlName = "ZO_PromotionalEventTracker_TLContainer";
-        label = KFS_LABEL_PROMOTIONAL_EVENT;
-        condition = function ()
-            return IsInGamepadPreferredMode() and GetControl("ZO_PromotionalEventTracker_TLContainer") ~= nil;
-        end;
-    };
-    {
-        id = "houseInformationGamepad";
-        controlName = "ZO_HouseInformationTrackerTopLevelContainer";
-        label = KFS_LABEL_HOUSE_INFORMATION;
-        condition = function ()
-            return IsInGamepadPreferredMode() and GetControl("ZO_HouseInformationTrackerTopLevelContainer") ~= nil;
-        end;
-    };
-    {
-        id = "activityTrackerGamepad";
-        controlName = "ZO_ActivityTrackerContainer";
-        label = KFS_LABEL_ACTIVITY_TRACKER;
-        condition = function ()
-            return IsInGamepadPreferredMode() and GetControl("ZO_ActivityTrackerContainer") ~= nil;
-        end;
-    };
-    {
-        id = "readyCheckGamepad";
-        controlName = "ZO_ReadyCheckTrackerTopLevelContainer";
-        label = KFS_LABEL_READY_CHECK;
-        condition = function ()
-            return IsInGamepadPreferredMode() and GetControl("ZO_ReadyCheckTrackerTopLevelContainer") ~= nil;
-        end;
     };
     {
         id = "playerHealth";
