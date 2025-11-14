@@ -138,7 +138,7 @@ local definitions =
                 PanelUtils.enableInheritScaleRecursive(container);
             end;
         end;
-    };   
+    };
     {
         id = "battleground";
         controlName = "ZO_BattlegroundHUDFragmentTopLevel";
