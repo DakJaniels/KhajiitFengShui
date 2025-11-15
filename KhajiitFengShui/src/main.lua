@@ -19,6 +19,7 @@ local EditModeController = KhajiitFengShui.EditModeController;
 local SettingsController = KhajiitFengShui.SettingsController;
 local AttributeScaler = KhajiitFengShui.AttributeScaler;
 local UnitFrameAnchors = KhajiitFengShui.UnitFrameAnchors;
+local MoverState = KhajiitFengShui.MoverState;
 
 local ATTRIBUTE_SCALER_PANEL_IDS =
 {
@@ -155,16 +156,7 @@ end;
 ---@param panelId string
 ---@return boolean
 function KhajiitFengShui:IsMoverEnabled(panelId)
-    if not panelId then
-        return true;
-    end;
-
-    local savedVars = self.savedVars;
-    if not (savedVars and savedVars.disabledPanels) then
-        return true;
-    end;
-
-    return savedVars.disabledPanels[panelId] ~= true;
+    return MoverState.IsMoverEnabled(self, panelId);
 end;
 
 ---Applies scale to a panel
@@ -278,7 +270,8 @@ function KhajiitFengShui:TryCreatePanel(definition)
     end;
 
     -- Register quest tracker hooks when panel is created (for gamepad mode)
-    if definition.id == "questTrackerGamepad" then
+    -- Only register hooks if mover is enabled
+    if definition.id == "questTrackerGamepad" and panel.moverEnabled then
         self:EnsureQuestTrackerHooks();
     end;
 
@@ -336,6 +329,10 @@ function KhajiitFengShui:RefreshPanelState(panel)
     if not (panel and panel.handler) then
         return;
     end;
+    -- Don't refresh state for disabled movers
+    if not self:IsMoverEnabled(panel.definition.id) then
+        return;
+    end;
 
     -- Determine active panel ID based on current mode
     local activePanelId = self.editModeActive and self.editModeFocusId or self.activePanelId;
@@ -382,6 +379,10 @@ function KhajiitFengShui:OnCompassApplyStyle()
     if not (compassPanel and compassPanel.handler and compassPanel.control and compassPanel.control.SetAnchor) then
         return;
     end;
+    -- Don't apply position if mover is disabled
+    if not self:IsMoverEnabled("compass") then
+        return;
+    end;
 
     local position = compassPanel.handler:GetPosition(true);
     if position then
@@ -423,6 +424,10 @@ function KhajiitFengShui:EnsureQuestTrackerHooks()
     local function reapplyQuestTrackerAnchors()
         local panel = self.panelLookup and self.panelLookup["questTrackerGamepad"];
         if panel and panel.definition then
+            -- Don't reapply if mover is disabled
+            if not self:IsMoverEnabled("questTrackerGamepad") then
+                return;
+            end;
             local hasCustomPosition = self.savedVars and self.savedVars.positions and self.savedVars.positions["questTrackerGamepad"] ~= nil;
             -- Reapply scale to ensure promo/house trackers are scaled correctly (only if explicit scale is set)
             if panel.definition.scaleApply then
@@ -653,6 +658,10 @@ function KhajiitFengShui:ApplySavedPosition(panel)
     if not panel.handler then
         return;
     end;
+    -- Don't apply position for disabled movers
+    if not self:IsMoverEnabled(panel.definition.id) then
+        return;
+    end;
 
     if
         self.savedVars.pyramidLayoutEnabled
@@ -789,6 +798,10 @@ end;
 function KhajiitFengShui:StartControlMove(panelId)
     local panel = self.panelLookup[panelId];
     if not (panel and panel.handler) then
+        return;
+    end;
+    -- Don't start moving disabled movers
+    if not self:IsMoverEnabled(panelId) then
         return;
     end;
 
@@ -1032,126 +1045,25 @@ end;
 ---Destroys mover resources for a panel
 ---@param panel KhajiitFengShuiPanel?
 function KhajiitFengShui:DestroyMover(panel)
-    if not panel then
-        return;
-    end;
-
-    if panel.handler and panel.handler.ToggleGamepadMove then
-        panel.handler:ToggleGamepadMove(false);
-    end;
-
-    panel.handler = nil;
-    panel.gamepadActive = false;
-
-    if panel.overlay then
-        panel.overlay:SetHidden(true);
-        panel.overlay:SetMouseEnabled(false);
-        panel.overlay:SetMovable(false);
-    end;
-
-    panel.overlay = nil;
-    panel.label = nil;
-    panel.moverEnabled = false;
+    MoverState.DestroyMover(self, panel);
 end;
 
 ---Ensures a panel mover exists
 ---@param panelId string
 function KhajiitFengShui:EnsurePanelMover(panelId)
-    if not panelId then
-        return;
-    end;
-
-    local panel = self.panelLookup and self.panelLookup[panelId];
-    if not panel then
-        local definition = self.definitionLookup and self.definitionLookup[panelId];
-        if definition then
-            panel = self:TryCreatePanel(definition);
-        end;
-    end;
-
-    if panel and not panel.handler then
-        self:CreateMover(panel);
-    end;
+    MoverState.EnsurePanelMover(self, panelId);
 end;
 
 ---Enables or disables a panel mover
 ---@param panelId string
 ---@param enabled boolean
 function KhajiitFengShui:SetMoverEnabled(panelId, enabled)
-    if not (panelId and self.savedVars) then
-        return;
-    end;
-
-    self.savedVars.disabledPanels = self.savedVars.disabledPanels or {};
-    local shouldEnable = enabled == true;
-    local currentlyEnabled = self:IsMoverEnabled(panelId);
-    if shouldEnable == currentlyEnabled then
-        return;
-    end;
-
-    local panel = self.panelLookup and self.panelLookup[panelId];
-
-    if shouldEnable then
-        self.savedVars.disabledPanels[panelId] = nil;
-        self:EnsurePanelMover(panelId);
-        panel = self.panelLookup and self.panelLookup[panelId];
-        if panel and panel.handler then
-            self:ApplySavedPosition(panel);
-            self:ApplyPanelScale(panel);
-            self:RefreshPanelState(panel);
-        end;
-    else
-        self.savedVars.disabledPanels[panelId] = true;
-
-        if panel then
-            if panel.handler then
-                local defaultPosition = panel.defaultPosition or
-                    { left = panel.control and panel.control:GetLeft() or 0; top = panel.control and panel.control:GetTop() or 0 };
-                panel.handler:UpdatePosition(defaultPosition);
-                PanelUtils.applyControlAnchor(panel, defaultPosition.left or 0, defaultPosition.top or 0);
-            elseif panel.defaultPosition then
-                PanelUtils.applyControlAnchor(panel, panel.defaultPosition.left or 0, panel.defaultPosition.top or 0);
-            end;
-
-            if ATTRIBUTE_SCALER_PANEL_IDS[panelId] and AttributeScaler and AttributeScaler.Remove then
-                AttributeScaler:Remove(panel);
-            elseif panel.control and panel.control.SetTransformScale then
-                PanelUtils.enableInheritScaleRecursive(panel.control);
-                panel.control:SetTransformScale(panel.defaultScale or DEFAULT_SCALE);
-            end;
-
-            self:DestroyMover(panel);
-        end;
-
-        if self.activePanelId == panelId then
-            self.activePanelId = nil;
-        end;
-        if self.editModeFocusId == panelId then
-            self.editModeFocusId = nil;
-            if self.editModeActive then
-                self:SelectFirstFocusablePanel();
-            end;
-        end;
-    end;
-
-    self:RefreshAllPanels();
-    self:RefreshGridOverlay();
-    self:RefreshSettingsAvailability();
+    MoverState.SetMoverEnabled(self, panelId, enabled);
 end;
 
 ---Synchronizes mover state for all panels with saved variables
 function KhajiitFengShui:SyncPanelMoverStates()
-    if not self.panels then
-        return;
-    end;
-
-    for _, panel in ipairs(self.panels) do
-        local desired = self:IsMoverEnabled(panel.definition.id);
-        local currently = panel.moverEnabled == true;
-        if desired ~= currently then
-            self:SetMoverEnabled(panel.definition.id, desired);
-        end;
-    end;
+    MoverState.SyncPanelMoverStates(self);
 end;
 
 ---Updates settings availability based on current panel states
@@ -1166,6 +1078,9 @@ function KhajiitFengShui:RefreshSettingsAvailability()
         panel.moverEnabled = enabled;
         if enabled and not panel.handler then
             self:CreateMover(panel);
+        elseif not enabled and panel.handler then
+            -- Destroy handler if mover is disabled but handler still exists
+            MoverState.DestroyMover(self, panel);
         end;
 
         local isPyramidBar = panel.definition.id == "playerHealth"
@@ -1186,7 +1101,7 @@ end;
 function KhajiitFengShui:ApplySnapSettings()
     local snapSize = self:GetSnapSize();
     for _, panel in ipairs(self.panels) do
-        if panel.handler then
+        if panel.handler and self:IsMoverEnabled(panel.definition.id) then
             panel.handler:SetSnap(snapSize > 0 and snapSize or nil);
         end;
     end;
@@ -1948,10 +1863,19 @@ function KhajiitFengShui:ApplyPyramidLayout()
                  end, 100);
 end;
 
+--hide reticle if disabled
+function KhajiitFengShui:RedirectReticleContainer()
+    local reticleEnabled = self.savedVars.reticleEnabled;
+    if not reticleEnabled then
+        ZO_ReticleContainerReticle:SetTexture("/esoui/art/icons/heraldrycrests_misc_blank_01.dds");
+    end;
+end;
+
 ---Handles player activated event
 ---@param eventId integer
 ---@param initial boolean
 function KhajiitFengShui:EVENT_PLAYER_ACTIVATED(eventId, initial)
+    self:RedirectReticleContainer();
     -- Ensure custom control wrappers are set up
     zo_callLater(GenerateFlatClosure(self.SetupCustomControls, self), 100);
     zo_callLater(GenerateFlatClosure(self.ApplyAllPositions, self), 200);
@@ -2007,18 +1931,6 @@ function KhajiitFengShui:OnAddOnLoaded(event, addonName)
         end;
         rawset(BOSS_BAR, "RefreshBossHealthBar", RefreshBossHealthBar);
     end;
-
-    -- Hook reticle to hide it if disabled
-    local reticleEnabled = self.savedVars.reticleEnabled;
-    ZO_PreHook(RETICLE, "UpdateHiddenState", function (reticleSelf)
-        if not reticleEnabled then
-            -- Force hide reticle if disabled
-            reticleSelf.control:SetHidden(true);
-            return true; -- Prevent original function from running
-        end;
-        -- Let original function run if enabled
-        return false;
-    end);
 
     if self.savedVars.alwaysExpandedBars then
         -- Hook OnValueChanged to force expanded state when enabled

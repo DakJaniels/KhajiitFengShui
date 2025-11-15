@@ -1,8 +1,8 @@
 ## Title: Khajiit Feng Shui
 ## Author: @dack_janiels[PC-NA]
 ## APIVersion: 101048 101049
-## Version: 1.2.5
-## AddOnVersion: 125
+## Version: 1.2.6
+## AddOnVersion: 126
 ## Description: Khajiit-approved console UI mover with LibCombatAlerts integration.
 ## DependsOn: LibCombatAlerts LibHarvensAddonSettings
 ## SavedVariables: KhajiitFengShui_SavedVariables
@@ -26,6 +26,9 @@ src/grid_overlay.lua
 
 # Settings
 src/settings_controller.lua
+
+# Mover state management
+src/mover_state.lua
 
 # Do the stuff.
 src/main.lua

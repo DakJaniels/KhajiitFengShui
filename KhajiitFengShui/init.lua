@@ -1,5 +1,5 @@
 local ADDON_NAME = "KhajiitFengShui";
-local ADDON_VERSION = "1.2.5";
+local ADDON_VERSION = "1.2.6";
 
 ---@class KFS_SavedVars
 ---@field grid { enabled: boolean, size: number }
@@ -32,6 +32,7 @@ local ADDON_VERSION = "1.2.5";
 ---@field reticleEnabled boolean
 
 ---@class KhajiitFengShui
+---@field MoverState KFS_MoverState
 ---@field name string Addon name
 ---@field displayName string Localized display name
 ---@field version string Version string

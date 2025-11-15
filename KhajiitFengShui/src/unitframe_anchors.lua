@@ -198,32 +198,52 @@ function UnitFrameAnchors.ReapplyScales(self)
     for _, panelId in ipairs(GROUP_PANEL_IDS) do
         local panel = self.panelLookup[panelId];
         if panel and panel.control then
-            local scale = self:GetPanelScale(panelId);
-            panel.control:SetTransformScale(scale);
-            PanelUtils.enableInheritScaleRecursive(panel.control);
-
-            -- Always reapply saved position if we have one
-            -- ZOS's UpdateGroupAnchorFrames may have moved the game control, breaking our setup
-            if self.savedVars and self.savedVars.positions and self.savedVars.positions[panelId] then
-                local savedPosition = self.savedVars.positions[panelId];
-                -- Reapply saved position to restore our custom control position
-                UnitFrameAnchors.ApplyAnchor(panel, savedPosition);
-            end;
-
-            -- Always ensure game control is anchored to our custom control
-            -- ZOS re-anchors it to GuiRoot during UpdateGroupAnchorFrames, breaking our setup
-            local gameControlName = getGameControlName(panelId);
-            if gameControlName then
-                local gameControl = GetControl(gameControlName);
-                if gameControl then
-                    gameControl:ClearAnchors();
-                    gameControl:SetAnchor(TOPLEFT, panel.control, TOPLEFT, 0, 0);
-                    gameControl:SetInheritScale(true);
+            -- Don't reapply if mover is disabled
+            if not self:IsMoverEnabled(panelId) then
+                -- If disabled, ensure game control is not anchored to our custom control
+                -- Let ZOS manage it directly
+                local gameControlName = getGameControlName(panelId);
+                if gameControlName then
+                    local gameControl = GetControl(gameControlName);
+                    if gameControl then
+                        -- Reset to default scale
+                        local defaultScale = panel.defaultScale or 1;
+                        PanelUtils.enableInheritScaleRecursive(gameControl);
+                        gameControl:SetInheritScale(false);
+                        if panel.control then
+                            panel.control:SetTransformScale(defaultScale);
+                        end;
+                    end;
                 end;
-            end;
+                -- Skip this panel - continue to next iteration
+            else
+                local scale = self:GetPanelScale(panelId);
+                panel.control:SetTransformScale(scale);
+                PanelUtils.enableInheritScaleRecursive(panel.control);
 
-            -- Sync overlay size and position to match actual frame dimensions after scale update
-            PanelUtils.syncOverlaySize(panel);
+                -- Always reapply saved position if we have one
+                -- ZOS's UpdateGroupAnchorFrames may have moved the game control, breaking our setup
+                if self.savedVars and self.savedVars.positions and self.savedVars.positions[panelId] then
+                    local savedPosition = self.savedVars.positions[panelId];
+                    -- Reapply saved position to restore our custom control position
+                    UnitFrameAnchors.ApplyAnchor(panel, savedPosition);
+                end;
+
+                -- Always ensure game control is anchored to our custom control
+                -- ZOS re-anchors it to GuiRoot during UpdateGroupAnchorFrames, breaking our setup
+                local gameControlName = getGameControlName(panelId);
+                if gameControlName then
+                    local gameControl = GetControl(gameControlName);
+                    if gameControl then
+                        gameControl:ClearAnchors();
+                        gameControl:SetAnchor(TOPLEFT, panel.control, TOPLEFT, 0, 0);
+                        gameControl:SetInheritScale(true);
+                    end;
+                end;
+
+                -- Sync overlay size and position to match actual frame dimensions after scale update
+                PanelUtils.syncOverlaySize(panel);
+            end;
         end;
     end;
 
@@ -232,7 +252,8 @@ function UnitFrameAnchors.ReapplyScales(self)
         local maxScale = 1;
         for _, panelId in ipairs(GROUP_PANEL_IDS) do
             local panel = self.panelLookup[panelId];
-            if panel then
+            -- Only include enabled movers in scale calculation
+            if panel and self:IsMoverEnabled(panelId) then
                 local scale = self:GetPanelScale(panelId);
                 if scale > maxScale then
                     maxScale = scale;
@@ -242,6 +263,9 @@ function UnitFrameAnchors.ReapplyScales(self)
         if maxScale ~= 1 then
             PanelUtils.enableInheritScaleRecursive(unitFramesGroups);
             unitFramesGroups:SetTransformScale(maxScale);
+        else
+            -- Reset to default scale if no enabled movers
+            unitFramesGroups:SetTransformScale(1);
         end;
     end;
 end;
@@ -292,34 +316,47 @@ function UnitFrameAnchors.EnsureHooks(self)
         ZO_UnitFrames_Manager,
         "UpdateGroupAnchorFrames",
         function ()
-            -- Use a delay to let ZOS finish its updates, then restore our positions
-            scheduleReapply(self, 100);
+            -- Check if any group frame movers are enabled before reapplying
+            local hasEnabledMovers = false;
+            for _, panelId in ipairs(GROUP_PANEL_IDS) do
+                if self:IsMoverEnabled(panelId) then
+                    hasEnabledMovers = true;
+                    break;
+                end;
+            end;
+            if hasEnabledMovers then
+                -- Use a delay to let ZOS finish its updates, then restore our positions
+                scheduleReapply(self, 100);
+            end;
         end
     );
 
-    -- Hook into group updates - but only reapply if we have custom positions
-    -- This prevents unnecessary repositioning when user hasn't moved frames
+    -- Hook into group updates - but only reapply if we have custom positions and enabled movers
+    -- This prevents unnecessary repositioning when user hasn't moved frames or movers are disabled
     em:RegisterForEvent(
         self.name .. "_GROUP_UPDATE",
         EVENT_GROUP_UPDATE,
         function ()
-            -- Check if we have any custom positions before reapplying
+            -- Check if we have any custom positions and enabled movers before reapplying
             if self.savedVars and self.savedVars.positions then
                 local hasCustomPositions = false;
+                local hasEnabledMovers = false;
                 for _, panelId in ipairs(GROUP_PANEL_IDS) do
                     if self.savedVars.positions[panelId] then
                         hasCustomPositions = true;
-                        break;
+                    end;
+                    if self:IsMoverEnabled(panelId) then
+                        hasEnabledMovers = true;
                     end;
                 end;
-                if hasCustomPositions then
+                if hasCustomPositions and hasEnabledMovers then
                     scheduleReapply(self, 150);
                 end;
             end;
         end
     );
 
-    -- Hook companion state changes - only reapply if we have custom positions
+    -- Hook companion state changes - only reapply if we have custom positions and enabled movers
     -- Companions (local, group, and raid) all use the same anchor frames as group members
     em:RegisterForEvent(
         self.name .. "_COMPANION_STATE_CHANGED",
@@ -327,13 +364,16 @@ function UnitFrameAnchors.EnsureHooks(self)
         function ()
             if self.savedVars and self.savedVars.positions then
                 local hasCustomPositions = false;
+                local hasEnabledMovers = false;
                 for _, panelId in ipairs(GROUP_PANEL_IDS) do
                     if self.savedVars.positions[panelId] then
                         hasCustomPositions = true;
-                        break;
+                    end;
+                    if self:IsMoverEnabled(panelId) then
+                        hasEnabledMovers = true;
                     end;
                 end;
-                if hasCustomPositions then
+                if hasCustomPositions and hasEnabledMovers then
                     -- Delay to let ZOS finish companion frame creation/destruction
                     scheduleReapply(self, 200);
                 end;
