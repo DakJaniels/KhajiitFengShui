@@ -3934,10 +3934,66 @@ local KFS_DEFAULTS =
     };
 };
 
+---
+---@return boolean shouldInitialize
+local function GetEnabledState()
+    local shouldInitialize = true;
+    local savedVars = KhajiitFengShui_SavedVariables;
+    if not savedVars or not savedVars["Default"] then
+        return shouldInitialize;
+    end;
+
+    local accountEntry = savedVars["Default"][GetDisplayName()];
+    if not accountEntry then
+        return shouldInitialize;
+    end;
+
+    local accountWide = accountEntry["$AccountWide"];
+    local characterEntry = accountEntry[GetCurrentCharacterId()];
+
+    local profileMode = (accountWide and accountWide.profileMode) or "account";
+    -- character profile mode can override if explicitly set
+    if characterEntry and characterEntry.profileMode == "character" then
+        profileMode = "character";
+    end;
+
+    local function interpret(value)
+        if value == nil then
+            return nil;
+        end;
+        return value ~= false;
+    end;
+
+    if profileMode == "character" then
+        local characterEnabled = characterEntry and interpret(characterEntry.unitframesEnabled);
+        if characterEnabled ~= nil then
+            return characterEnabled;
+        end;
+    end;
+
+    local accountEnabled = accountWide and interpret(accountWide.unitframesEnabled);
+    if accountEnabled ~= nil then
+        return accountEnabled;
+    end;
+
+    local fallbackCharacterEnabled = characterEntry and interpret(characterEntry.unitframesEnabled);
+    if fallbackCharacterEnabled ~= nil then
+        return fallbackCharacterEnabled;
+    end;
+
+    return shouldInitialize;
+end;
+
 --- Init frames
 function KFS_Initialize()
     local function OnAddOnLoaded(eventId, name)
         if name == "KhajiitFengShui" then
+            local shouldInitialize = GetEnabledState();
+
+            if not shouldInitialize then
+                return;
+            end;
+
             CalculateDynamicPlatformConstants();
 
             -- SavedVars (account-wide)
@@ -4454,14 +4510,14 @@ function KFS_Initialize()
             settings:AddSettings(controls);
 
             CALLBACK_MANAGER:FireCallbacks("KFS_UnitFramesCreated");
+            KFS_UNIT_FRAMES_FRAGMENT = ZO_HUDFadeSceneFragment:New(KFS_UnitFrames);
+            HUD_SCENE:AddFragment(KFS_UNIT_FRAMES_FRAGMENT);
+            HUD_UI_SCENE:AddFragment(KFS_UNIT_FRAMES_FRAGMENT);
             EVENT_MANAGER:UnregisterForEvent("KFS_OnAddOnLoaded", EVENT_ADD_ON_LOADED);
         end;
     end;
 
     EVENT_MANAGER:RegisterForEvent("KFS_OnAddOnLoaded", EVENT_ADD_ON_LOADED, OnAddOnLoaded);
-    KFS_UNIT_FRAMES_FRAGMENT = ZO_HUDFadeSceneFragment:New(KFS_UnitFrames);
-    HUD_SCENE:AddFragment(KFS_UNIT_FRAMES_FRAGMENT);
-    HUD_UI_SCENE:AddFragment(KFS_UNIT_FRAMES_FRAGMENT);
 end;
 
 ---Called from XML

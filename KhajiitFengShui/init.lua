@@ -15,6 +15,7 @@ local ADDON_VERSION = "1.2.7";
 ---@field disabledPanels table<string, boolean>
 ---@field bossBarEnabled boolean
 ---@field reticleEnabled boolean
+---@field unitframesEnabled boolean
 
 ---@class KFS_Defaults
 ---@field grid { enabled: boolean, size: number }
@@ -30,6 +31,7 @@ local ADDON_VERSION = "1.2.7";
 ---@field disabledPanels table<string, boolean>
 ---@field bossBarEnabled boolean
 ---@field reticleEnabled boolean
+---@field unitframesEnabled boolean
 
 ---@class KhajiitFengShui
 ---@field MoverState KFS_MoverState
@@ -125,5 +127,6 @@ KhajiitFengShui =
         disabledPanels = {};
         bossBarEnabled = true;
         reticleEnabled = true;
+        unitframesEnabled = true;
     };
 };

@@ -169,6 +169,7 @@ function SettingsController:CreateSettingsMenu()
                                                               self.addon.savedVars.grid.size = self.addon.defaults.grid.size;
                                                               self.addon:ResetPositions();
                                                               self.addon:ApplySnapSettings();
+                                                              self.addon.savedVars.unitframesEnabled = self.addon.defaults.unitframesEnabled;
                                                               self.addon.savedVars.buffAnimationsEnabled = self.addon.defaults.buffAnimationsEnabled;
                                                               self.addon:UpdateBuffAnimationHook();
                                                               self.addon.savedVars.globalCooldownEnabled = self.addon.defaults.globalCooldownEnabled;
@@ -254,6 +255,22 @@ function SettingsController:CreateSettingsMenu()
         setFunction = function (value)
             self.addon.savedVars.grid.size = value;
             self.addon:ApplySnapSettings();
+        end;
+    };
+    controlCount = controlCount + 1;
+
+    controls[controlCount] =
+    {
+        type = LibHarvensAddonSettings.ST_CHECKBOX;
+        label = GetString(KFS_ENABLE_UNITFRAMES);
+        tooltip = GetString(KFS_ENABLE_UNITFRAMES_DESC_RELOAD);
+        default = self.addon.defaults.unitframesEnabled;
+        getFunction = function ()
+            return self.addon.savedVars.unitframesEnabled;
+        end;
+        setFunction = function (value)
+            self.addon.savedVars.unitframesEnabled = value;
+            ReloadUI("ingame");
         end;
     };
     controlCount = controlCount + 1;
