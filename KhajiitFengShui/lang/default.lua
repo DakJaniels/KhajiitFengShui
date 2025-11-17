@@ -62,10 +62,6 @@ local strings =
     KFS_LABEL_TUTORIALS = "Tutorials";
     KFS_LABEL_ALERTS = "Alerts";
     KFS_LABEL_COMBAT_TIPS = "Active Combat Tips";
-    KFS_LABEL_GROUP_SMALL = "Group Frames (Small)";
-    KFS_LABEL_GROUP_LARGE_1 = "Raid Frames Column 1";
-    KFS_LABEL_GROUP_LARGE_2 = "Raid Frames Column 2";
-    KFS_LABEL_GROUP_LARGE_3 = "Raid Frames Column 3";
     KFS_LABEL_QUEST_TRACKER = "Quest Tracker";
     KFS_LABEL_PLAYER_HEALTH = "Player Health Bar";
     KFS_LABEL_PLAYER_MAGICKA = "Player Magicka Bar";
@@ -82,6 +78,11 @@ local strings =
     KFS_LABEL_STEALTH_ICON = "Stealth Icon";
     KFS_LABEL_RETICLE_ICON = "Reticle";
     KFS_LABEL_RAM_SIEGE = "Ram Siege";
+    KFS_LABEL_UNITFRAME_SMALL_GROUP = "Unit Frame: Small Group";
+    KFS_LABEL_UNITFRAME_RAID_1 = "Unit Frame: Raid Group 1";
+    KFS_LABEL_UNITFRAME_RAID_2 = "Unit Frame: Raid Group 2";
+    KFS_LABEL_UNITFRAME_RAID_3 = "Unit Frame: Raid Group 3";
+    KFS_LABEL_UNITFRAME_TARGET = "Unit Frame: Target";
 };
 
 for stringId, stringValue in pairs(strings) do

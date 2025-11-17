@@ -4,7 +4,6 @@ KhajiitFengShui.MoverState = MoverState;
 
 local PanelUtils = KhajiitFengShui.PanelUtils;
 local AttributeScaler = KhajiitFengShui.AttributeScaler;
-local UnitFrameAnchors = KhajiitFengShui.UnitFrameAnchors;
 
 local DEFAULT_SCALE = 1;
 local ATTRIBUTE_SCALER_PANEL_IDS =

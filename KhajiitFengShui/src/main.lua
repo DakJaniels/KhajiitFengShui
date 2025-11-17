@@ -18,7 +18,6 @@ local GridOverlay = KhajiitFengShui.GridOverlay;
 local EditModeController = KhajiitFengShui.EditModeController;
 local SettingsController = KhajiitFengShui.SettingsController;
 local AttributeScaler = KhajiitFengShui.AttributeScaler;
-local UnitFrameAnchors = KhajiitFengShui.UnitFrameAnchors;
 local MoverState = KhajiitFengShui.MoverState;
 
 local ATTRIBUTE_SCALER_PANEL_IDS =
@@ -163,6 +162,11 @@ end;
 ---@param panel KhajiitFengShuiPanel?
 function KhajiitFengShui:ApplyPanelScale(panel)
     if not panel or not self:IsMoverEnabled(panel.definition.id) then
+        return;
+    end;
+
+    -- Unitframes handle their own scaling, don't apply main addon scaling
+    if panel.definition.id and string.match(panel.definition.id, "^unitFrame") then
         return;
     end;
 
@@ -353,9 +357,6 @@ function KhajiitFengShui:RefreshPanelState(panel)
     if panel.overlay then
         panel.overlay:SetHidden(not self:IsPanelVisible(panel));
         PanelUtils.setOverlayHighlight(panel, isActive);
-
-        -- Sync overlay size for unitframe anchors
-        UnitFrameAnchors.SyncOverlaySize(panel);
     end;
 
     -- Update label visibility
@@ -404,11 +405,6 @@ function KhajiitFengShui:EnsureCompassHook()
     ZO_PostHook(COMPASS_FRAME, "ApplyStyle", GenerateFlatClosure(self.OnCompassApplyStyle, self));
 
     self.compassHookRegistered = true;
-end;
-
----Ensures group frame hooks are registered
-function KhajiitFengShui:EnsureGroupFrameHooks()
-    UnitFrameAnchors.EnsureHooks(self);
 end;
 
 ---Ensures quest tracker hooks are registered for gamepad mode
@@ -519,9 +515,6 @@ end;
 
 ---Sets up custom control wrappers for UI elements to enable proper positioning
 function KhajiitFengShui:SetupCustomControls()
-    -- Setup unitframe anchors first
-    UnitFrameAnchors.SetupAnchors();
-
     -- Create a custom control to hold the player buffs/debuffs
     setupCustomControlWrapper(
         "KhajiitFengShui_PlayerBuffs",
@@ -709,24 +702,14 @@ function KhajiitFengShui:ApplySavedPosition(panel)
     if savedPosition then
         handler:UpdatePosition(savedPosition);
         local gridSize = self:GetSnapSize();
-        -- Use unitframe-specific anchor handling if this is a unitframe anchor
-        if UnitFrameAnchors.IsUnitFrameAnchor(panel.definition.id) then
-            UnitFrameAnchors.ApplyAnchor(panel, savedPosition);
-        else
-            PanelUtils.applyControlAnchorFromPosition(panel, savedPosition, gridSize);
-        end;
+        PanelUtils.applyControlAnchorFromPosition(panel, savedPosition, gridSize);
     else
         local left = panel.control:GetLeft();
         local top = panel.control:GetTop();
         local defaultPosition = { left = left; top = top };
         handler:UpdatePosition(defaultPosition);
         local gridSize = self:GetSnapSize();
-        -- Use unitframe-specific anchor handling if this is a unitframe anchor
-        if UnitFrameAnchors.IsUnitFrameAnchor(panel.definition.id) then
-            UnitFrameAnchors.ApplyAnchor(panel, defaultPosition);
-        else
-            PanelUtils.applyControlAnchorFromPosition(panel, defaultPosition, gridSize);
-        end;
+        PanelUtils.applyControlAnchorFromPosition(panel, defaultPosition, gridSize);
     end;
 
     if panel.definition.preApply then
@@ -947,13 +930,7 @@ function KhajiitFengShui:OnMoveStop(panel, handler, newPos, isExplicitStop)
 
         -- Note: newPos is already snapped by LCA MoveableControl (snap happens before EVENT_CONTROL_MOVE_STOP)
         local gridSize = self:GetSnapSize();
-        -- Use unitframe-specific anchor handling if this is a unitframe anchor
-        if UnitFrameAnchors.IsUnitFrameAnchor(panel.definition.id) then
-            -- LCA already snapped the position, so don't pass gridSize
-            UnitFrameAnchors.ApplyAnchor(panel, position);
-        else
-            PanelUtils.applyControlAnchorFromPosition(panel, position, gridSize);
-        end;
+        PanelUtils.applyControlAnchorFromPosition(panel, position, gridSize);
 
         if panel.definition.postApply then
             panel.definition.postApply(panel.control, true);
@@ -1025,14 +1002,8 @@ function KhajiitFengShui:CreateMover(panel)
     PanelUtils.applySizing(panel.control, panel.definition.width, panel.definition.height);
     self:ApplySavedPosition(panel);
 
-    -- Sync overlay size for unitframe anchors after creation
-    UnitFrameAnchors.SyncOverlaySize(panel);
-
     if panel.definition.id == "compass" then
         self:EnsureCompassHook();
-    end;
-    if UnitFrameAnchors.IsUnitFrameAnchor(panel.definition.id) then
-        self:EnsureGroupFrameHooks();
     end;
 
     if panel.definition.id == "questTrackerGamepad" then

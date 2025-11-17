@@ -79,7 +79,9 @@ function SettingsController:AddPanelSetting(panel)
         panel.enableSettingAdded = true;
     end;
 
-    if not panel.scaleSettingAdded then
+    -- Unitframes handle their own scaling, don't add scale slider
+    local isUnitFrame = panel.definition.id and string.match(panel.definition.id, "^unitFrame");
+    if not panel.scaleSettingAdded and not isUnitFrame then
         self.settingsPanel:AddSetting(
             {
                 type = LibHarvensAddonSettings.ST_SLIDER;
