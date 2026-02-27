@@ -3937,6 +3937,9 @@ local KFS_DEFAULTS =
 ---
 ---@return boolean shouldInitialize
 local function GetEnabledState()
+    if LUIE and LUIE.UnitFrames.Enabled == true then
+        return false;
+    end
     local shouldInitialize = true;
     local savedVars = KhajiitFengShui_SavedVariables;
     if not savedVars or not savedVars["Default"] then
