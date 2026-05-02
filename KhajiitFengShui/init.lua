@@ -1,5 +1,5 @@
 local ADDON_NAME = "KhajiitFengShui";
-local ADDON_VERSION = "1.3.0";
+local ADDON_VERSION = "1.3.1";
 
 ---@class KFS_SavedVars
 ---@field grid { enabled: boolean, size: number }
@@ -16,6 +16,7 @@ local ADDON_VERSION = "1.3.0";
 ---@field bossBarEnabled boolean
 ---@field reticleEnabled boolean
 ---@field unitframesEnabled boolean
+---@field panelHidden table<string, boolean>
 
 ---@class KFS_Defaults
 ---@field grid { enabled: boolean, size: number }
@@ -32,6 +33,7 @@ local ADDON_VERSION = "1.3.0";
 ---@field bossBarEnabled boolean
 ---@field reticleEnabled boolean
 ---@field unitframesEnabled boolean
+---@field panelHidden table<string, boolean>
 
 ---@class KhajiitFengShui
 ---@field MoverState KFS_MoverState
@@ -70,6 +72,7 @@ local ADDON_VERSION = "1.3.0";
 ---@field buffAnimationHookRegistered boolean
 ---@field globalCooldownActive boolean
 ---@field groupFrameHooksRegistered boolean
+---@field advZoneHUDTrackerHookRegistered boolean
 ---@field LHAS LibHarvensAddonSettings LibHarvensAddonSettings instance
 ---@field settingsPanel table|nil Settings panel instance
 ---@field defaults KFS_Defaults Default configuration values
@@ -108,6 +111,7 @@ KhajiitFengShui =
     buffAnimationHookRegistered = false;
     globalCooldownActive = false;
     groupFrameHooksRegistered = false;
+    advZoneHUDTrackerHookRegistered = false;
     defaults =
     {
         grid =
@@ -128,5 +132,6 @@ KhajiitFengShui =
         bossBarEnabled = true;
         reticleEnabled = true;
         unitframesEnabled = true;
+        panelHidden = {};
     };
 };

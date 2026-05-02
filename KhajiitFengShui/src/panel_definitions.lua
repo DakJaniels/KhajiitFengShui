@@ -14,6 +14,8 @@ local PanelUtils = KhajiitFengShui.PanelUtils;
 ---@field preApply fun(control: userdata, hasCustomPosition: boolean) Called before applying position
 ---@field postApply fun(control: userdata, hasCustomPosition: boolean) Called after applying position
 ---@field condition fun(): boolean Function to check if panel should be created
+---@field fragmentGlobalName string? Global name for ZO_HUDFadeSceneFragment (user hide toggle)
+---@field supportsUserHidden boolean? If true, settings expose hide checkbox using fragmentGlobalName
 
 ---@type KhajiitFengShuiPanelDefinition[]
 local definitions =
@@ -45,6 +47,50 @@ local definitions =
         controlName = "ZO_BattlegroundHUDFragmentTopLevel";
         label = KFS_LABEL_BATTLEGROUND;
         height = 200;
+    };
+    {
+        id = "advZoneHUDTopLevel";
+        controlName = "KhajiitFengShui_AdvZoneHUD";
+        label = KFS_LABEL_ADV_ZONE_HUD;
+        width = 260;
+        height = 56;
+        fragmentGlobalName = "ADVENTURE_ZONE_HUD_FRAGMENT";
+        supportsUserHidden = true;
+        condition = function ()
+            return GetControl("KhajiitFengShui_AdvZoneHUD") ~= nil
+                and GetControl("ZO_AdvZoneHUD_TopLevel") ~= nil
+                and _G["ADVENTURE_ZONE_HUD_FRAGMENT"] ~= nil;
+        end;
+    };
+    {
+        id = "advZoneHUDTracker";
+        controlName = "ZO_AdvZoneHUDTracker";
+        label = KFS_LABEL_ADV_ZONE_TRACKER;
+        width = function ()
+            local control = GetControl("ZO_AdvZoneHUDTracker");
+            if control then
+                local w = control:GetWidth();
+                if w and w > 0 then
+                    return w;
+                end;
+            end;
+            return 320;
+        end;
+        height = function ()
+            local control = GetControl("ZO_AdvZoneHUDTracker");
+            if control then
+                local h = control:GetHeight();
+                if h and h > 0 then
+                    return h;
+                end;
+            end;
+            return 220;
+        end;
+        fragmentGlobalName = "ADVENTURE_ZONE_HUD_TRACKER_FRAGMENT";
+        supportsUserHidden = true;
+        condition = function ()
+            return GetControl("ZO_AdvZoneHUDTracker") ~= nil and _G["ADVENTURE_ZONE_HUD_TRACKER_FRAGMENT"] ~= nil;
+        end;
     };
     {
         id = "actionbar";

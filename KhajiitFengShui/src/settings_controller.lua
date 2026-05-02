@@ -104,6 +104,29 @@ function SettingsController:AddPanelSetting(panel)
         panel.scaleSettingAdded = true;
     end;
 
+    if not panel.hideSettingAdded and panel.definition.supportsUserHidden then
+        self.settingsPanel:AddSetting(
+            {
+                type = LibHarvensAddonSettings.ST_CHECKBOX;
+                label = GetString(KFS_HIDE_PANEL);
+                tooltip = GetString(KFS_HIDE_PANEL_DESC);
+                default = false;
+                getFunction = function ()
+                    return self.addon.savedVars.panelHidden and self.addon.savedVars.panelHidden[panel.definition.id] == true;
+                end;
+                setFunction = function (value)
+                    self.addon.savedVars.panelHidden = self.addon.savedVars.panelHidden or {};
+                    if value then
+                        self.addon.savedVars.panelHidden[panel.definition.id] = true;
+                    else
+                        self.addon.savedVars.panelHidden[panel.definition.id] = nil;
+                    end;
+                    self.addon:ApplyUserHiddenForPanel(panel);
+                end;
+            });
+        panel.hideSettingAdded = true;
+    end;
+
     if not panel.moveSettingAdded then
         self.settingsPanel:AddSetting(
             {
@@ -176,7 +199,12 @@ function SettingsController:CreateSettingsMenu()
                                                               self.addon:ApplyGlobalCooldownSetting();
                                                               self.addon.savedVars.bossBarEnabled = self.addon.defaults.bossBarEnabled;
                                                               self.addon.savedVars.reticleEnabled = self.addon.defaults.reticleEnabled;
+                                                              self.addon.savedVars.panelHidden = {};
+                                                              for panelId, hidden in pairs(self.addon.defaults.panelHidden or {}) do
+                                                                  self.addon.savedVars.panelHidden[panelId] = hidden;
+                                                              end;
                                                               self.addon.activePanelId = nil;
+                                                              self.addon:ApplyAllUserHiddenStates();
                                                               self.addon:RefreshAllPanels();
                                                               self.addon:RefreshGridOverlay();
                                                           end;

@@ -4,6 +4,7 @@ local SCALE_MIN_PERCENT = 50;
 local SCALE_MAX_PERCENT = 150;
 local SCALE_STEP_PERCENT = 5;
 local DEFAULT_SCALE = 1;
+local KFS_FRAGMENT_HIDDEN_REASON_USER = "KhajiitFengShuiUserHidden";
 
 ---@type LibCombatAlerts
 local LCA;
@@ -97,6 +98,15 @@ local function EnsureSavedVarStructure(savedVars, defaults)
     if savedVars.reticleEnabled == nil then
         savedVars.reticleEnabled = defaults.reticleEnabled ~= false;
     end;
+
+    savedVars.panelHidden = savedVars.panelHidden or {};
+    if defaults.panelHidden then
+        for panelId, hidden in pairs(defaults.panelHidden) do
+            if savedVars.panelHidden[panelId] == nil then
+                savedVars.panelHidden[panelId] = hidden;
+            end;
+        end;
+    end;
 end;
 
 ---@class KhajiitFengShuiPanel
@@ -113,6 +123,7 @@ end;
 ---@field enableSettingAdded boolean Enable toggle created flag
 ---@field scaleSettingAdded boolean Scale slider created flag
 ---@field moveSettingAdded boolean Move button created flag
+---@field hideSettingAdded boolean Hide-via-fragment checkbox created flag
 ---@field compassDefaults { baseWidth: number?, baseHeight: number?, leftWidth: number?, rightWidth: number?, labelScale: number?, labelAnchorPoint: integer?, labelAnchorTarget: userdata?, labelAnchorRelativePoint: integer?, labelOffsetX: number?, labelOffsetY: number? } Compass-specific defaults
 
 ---Updates overlay label text
@@ -407,6 +418,59 @@ function KhajiitFengShui:EnsureCompassHook()
     self.compassHookRegistered = true;
 end;
 
+---Applies user fragment hide preference for one panel
+---@param panel KhajiitFengShuiPanel?
+function KhajiitFengShui:ApplyUserHiddenForPanel(panel)
+    if not (panel and panel.definition and panel.definition.supportsUserHidden and panel.definition.fragmentGlobalName) then
+        return;
+    end;
+
+    local fragment = _G[panel.definition.fragmentGlobalName];
+    if not (fragment and fragment.SetHiddenForReason) then
+        return;
+    end;
+
+    local hidden = self.savedVars and self.savedVars.panelHidden and self.savedVars.panelHidden[panel.definition.id] == true;
+    fragment:SetHiddenForReason(KFS_FRAGMENT_HIDDEN_REASON_USER, hidden);
+end;
+
+---Applies user fragment hide preferences for all panels that support them
+function KhajiitFengShui:ApplyAllUserHiddenStates()
+    for _, panel in ipairs(self.panels or {}) do
+        self:ApplyUserHiddenForPanel(panel);
+    end;
+end;
+
+---Reapplies saved Adventure Zone HUD tracker position after game refreshes anchors
+function KhajiitFengShui:OnAdvZoneHUDTrackerRefreshAnchorsAfter()
+    local panel = self.panelLookup and self.panelLookup["advZoneHUDTracker"];
+    if not panel then
+        return;
+    end;
+    if not self:IsMoverEnabled("advZoneHUDTracker") then
+        return;
+    end;
+    if not (self.savedVars and self.savedVars.positions and self.savedVars.positions["advZoneHUDTracker"]) then
+        return;
+    end;
+    self:ApplySavedPosition(panel);
+end;
+
+---Ensures PostHook runs after ZO_AdventureZoneHUDTracker:RefreshAnchors so KFS position persists
+function KhajiitFengShui:EnsureAdvZoneHUDTrackerHook()
+    if self.advZoneHUDTrackerHookRegistered then
+        return;
+    end;
+
+    if not (ZO_PostHook and ZO_AdventureZoneHUDTracker and ZO_AdventureZoneHUDTracker.RefreshAnchors) then
+        return;
+    end;
+
+    ZO_PostHook(ZO_AdventureZoneHUDTracker, "RefreshAnchors", GenerateFlatClosure(self.OnAdvZoneHUDTrackerRefreshAnchorsAfter, self));
+
+    self.advZoneHUDTrackerHookRegistered = true;
+end;
+
 ---Ensures quest tracker hooks are registered for gamepad mode
 function KhajiitFengShui:EnsureQuestTrackerHooks()
     if self.questTrackerHooksRegistered then
@@ -587,6 +651,18 @@ function KhajiitFengShui:SetupCustomControls()
         end
     );
 
+    -- Adventure Zone player score HUD: wrapper is the mover target; TopLevel fills wrapper (same pattern as buff containers)
+    setupCustomControlWrapper(
+        "KhajiitFengShui_AdvZoneHUD",
+        "ZO_AdvZoneHUD_TopLevel",
+        260,
+        56,
+        function (customControl)
+            customControl:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, 15, 15);
+        end,
+        true
+    );
+
     -- Create a custom control for active combat tips
     setupCustomControlWrapper(
         "KhajiitFengShui_CombatTips",
@@ -668,9 +744,12 @@ function KhajiitFengShui:ApplySavedPosition(panel)
         return;
     end;
 
-    -- For quest trackers, ensure control has valid dimensions before applying position
-    local isQuestTracker = panel.definition.id == "questTracker" or panel.definition.id == "questTrackerGamepad";
-    if isQuestTracker then
+    -- For quest trackers / Adv Zone tracker, ensure valid dimensions before applying position
+    local needsDimensionDeferral =
+        panel.definition.id == "questTracker"
+        or panel.definition.id == "questTrackerGamepad"
+        or panel.definition.id == "advZoneHUDTracker";
+    if needsDimensionDeferral then
         local control = panel.control;
         local controlWidth = control:GetWidth() or 0;
         local controlHeight = control:GetHeight() or 0;
@@ -1004,6 +1083,10 @@ function KhajiitFengShui:CreateMover(panel)
 
     if panel.definition.id == "compass" then
         self:EnsureCompassHook();
+    end;
+
+    if panel.definition.id == "advZoneHUDTracker" then
+        self:EnsureAdvZoneHUDTrackerHook();
     end;
 
     if panel.definition.id == "questTrackerGamepad" then
@@ -1668,6 +1751,10 @@ function KhajiitFengShui:OnTargetFrameCreated(targetFrame)
         self:EnsureCompassHook();
     end;
 
+    if panel.definition.id == "advZoneHUDTracker" then
+        self:EnsureAdvZoneHUDTrackerHook();
+    end;
+
     if self.settingsController then
         self.settingsController:AddPanelSetting(panel);
     end;
@@ -1735,6 +1822,8 @@ function KhajiitFengShui:ApplyAllPositions()
             self:ApplySavedPosition(panel);
         end;
     end;
+
+    self:ApplyAllUserHiddenStates();
 end;
 
 ---Applies pyramid layout to attribute bars
@@ -1847,6 +1936,7 @@ end;
 ---@param initial boolean
 function KhajiitFengShui:EVENT_PLAYER_ACTIVATED(eventId, initial)
     self:RedirectReticleContainer();
+    self:ApplyAllUserHiddenStates();
     -- Ensure custom control wrappers are set up
     zo_callLater(GenerateFlatClosure(self.SetupCustomControls, self), 100);
     zo_callLater(GenerateFlatClosure(self.ApplyAllPositions, self), 200);
@@ -1928,6 +2018,7 @@ function KhajiitFengShui:OnAddOnLoaded(event, addonName)
     AttributeScaler:SetAlwaysExpanded(self.savedVars.alwaysExpandedBars);
 
     self:InitializePanels();
+    self:EnsureAdvZoneHUDTrackerHook();
     self.settingsController = SettingsController:New(self);
     self.settingsController:CreateSettingsMenu();
     self:ApplyAllPositions();
