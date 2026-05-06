@@ -152,7 +152,7 @@ read_globals =
     "ZO_ObjectPool",
     "ZO_ClearTable",
     "ZO_Anchor",
-    "ZO_IsConsoleUI",
+    "ZO_ZO_IsConsoleOrGameCoreUI",
     "ZO_GetControlOwnerObject",
     "ZO_Eval",
     "ZO_Alert",

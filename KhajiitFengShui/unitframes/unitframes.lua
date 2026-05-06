@@ -615,7 +615,7 @@ function KFS_RegisterUnitFramePanels()
     mainAddon:TryCreatePanel(smallGroupDef);
 
     -- Register raid group panels (console/gamepad only has 2 groups, not 3)
-    local maxRaidGroups = IsConsoleUI() and 2 or NUM_SUBGROUPS;
+    local maxRaidGroups = ZO_IsConsoleOrGameCoreUI() and 2 or NUM_SUBGROUPS;
     for i = 1, maxRaidGroups do
         local raidId = string.format("unitFrameRaid%d", i);
         local labelId = string.format("KFS_LABEL_UNITFRAME_RAID_%d", i);
@@ -4082,7 +4082,7 @@ function KFS_Initialize()
             controlCount = controlCount + 1;
 
             -- Platform Layout dropdown only for non-console (console can't access keyboard code paths)
-            if not IsConsoleUI() then
+            if not ZO_IsConsoleOrGameCoreUI() then
                 controls[controlCount] =
                 {
                     type = LibHarvensAddonSettings.ST_DROPDOWN;
@@ -4115,7 +4115,7 @@ function KFS_Initialize()
             end;
 
             -- Bar Text Mode only for keyboard (doesn't refresh properly on console)
-            if not IsConsoleUI() then
+            if not ZO_IsConsoleOrGameCoreUI() then
                 controls[controlCount] =
                 {
                     type = LibHarvensAddonSettings.ST_DROPDOWN;
@@ -4155,7 +4155,7 @@ function KFS_Initialize()
             };
             controlCount = controlCount + 1;
             -- Per-Context section (only for keyboard, not console)
-            if not IsConsoleUI() then
+            if not ZO_IsConsoleOrGameCoreUI() then
                 controls[controlCount] =
                 {
                     type = LibHarvensAddonSettings.ST_SLIDER;
@@ -4243,7 +4243,7 @@ function KFS_Initialize()
             controlCount = controlCount + 1;
 
             -- Per-Context section (only for keyboard, not console)
-            if not IsConsoleUI() then
+            if not ZO_IsConsoleOrGameCoreUI() then
                 controls[controlCount] =
                 {
                     type = LibHarvensAddonSettings.ST_SECTION;
@@ -4508,7 +4508,7 @@ function KFS_Initialize()
                     default = "Hidden";
                 };
                 controlCount = controlCount + 1;
-            end; -- End IsConsoleUI() check for Per-Context settings
+            end; -- End ZO_IsConsoleOrGameCoreUI() check for Per-Context settings
 
             settings:AddSettings(controls);
 
