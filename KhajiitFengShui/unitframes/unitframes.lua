@@ -646,35 +646,6 @@ function KFS_RegisterUnitFramePanels()
     mainAddon:TryCreatePanel(targetDef);
 end;
 
----@class KFS_MostRecentPowerUpdateHandler : ZO_MostRecentEventHandler
-KFS_MostRecentPowerUpdateHandler = ZO_MostRecentEventHandler:Subclass();
-
-do
-    ---
-    ---@param existingEventInfo table
-    ---@param unitTag string
-    ---@param powerIndex luaindex
-    ---@param powerType CombatMechanicFlags
-    ---@param powerValue integer
-    ---@param powerMax integer
-    ---@param powerEffectiveMax integer
-    ---@return boolean
-    local function PowerUpdateEqualityFunction(existingEventInfo, unitTag, powerIndex, powerType, powerValue, powerMax, powerEffectiveMax)
-        -- existingEventInfo is an array of the previous event parameters: [unitTag, powerIndex, powerType, powerValue, powerMax, powerEffectiveMax]
-        local existingUnitTag = existingEventInfo[1];
-        local existingPowerType = existingEventInfo[3];
-        return existingUnitTag == unitTag and existingPowerType == powerType;
-    end;
-
-    ---
-    ---@param namespace string
-    ---@param handlerFunction function
-    ---@return KFS_MostRecentPowerUpdateHandler
-    function KFS_MostRecentPowerUpdateHandler:New(namespace, handlerFunction)
-        return ZO_MostRecentEventHandler.New(self, namespace, EVENT_POWER_UPDATE, PowerUpdateEqualityFunction, handlerFunction);
-    end;
-end;
-
 --[[
     UnitFrames container object.  Used to manage the ZO_UnitFrameObject objects according to UnitTags ("group1", "group4pet", etc...)
 --]]
@@ -1907,6 +1878,7 @@ function KFS_Frame:Initialize(unitTag, anchors, barTextMode, style, templateName
     self.rankIcon = self:AddFadeComponent("RankIcon", DONT_COLOR_RANK_ICON);
     self.assignmentIcon = self:AddFadeComponent("AssignmentIcon", DONT_COLOR_RANK_ICON);
     self.championIcon = self:AddFadeComponent("ChampionIcon");
+    self.veterancyRankIcon = self:AddFadeComponent("VeterancyRankIcon");
     self.leftBracket = self:AddFadeComponent("LeftBracket");
     self.leftBracketGlow = self.frame:GetNamedChild("LeftBracketGlow");
     self.leftBracketUnderlay = self.frame:GetNamedChild("LeftBracketUnderlay");
@@ -2390,29 +2362,59 @@ function KFS_Frame:ShouldShowLevel()
 end;
 
 ---
+---@return boolean
+function KFS_Frame:ShouldShowVeterancyInfo()
+    -- Show info for remote players when in Veterancy areas
+    local unitTag = self:GetUnitTag();
+    return IsUnitPlayer(unitTag) and IsVeterancySeasonActive() and IsInVeterancyProgressionZone();
+end;
+
+---
 ---@return nil
 function KFS_Frame:UpdateLevel()
     local showLevel = self:ShouldShowLevel();
+    local shouldShowVeterancyInfo = self:ShouldShowVeterancyInfo();
+    local unitTag = self:GetUnitTag();
+    local isChampion = IsUnitChampion(unitTag);
     local unitLevel;
-    local isChampion = IsUnitChampion(self:GetUnitTag());
-    if isChampion then
-        unitLevel = GetUnitEffectiveChampionPoints(self:GetUnitTag());
+    local veterancyRankData;
+
+    if shouldShowVeterancyInfo then
+        unitLevel = GetUnitVeterancyRank(unitTag);
+        veterancyRankData = ZO_VeterancyRankData:New(unitLevel);
+    elseif isChampion then
+        unitLevel = GetUnitEffectiveChampionPoints(unitTag);
     else
-        unitLevel = GetUnitLevel(self:GetUnitTag());
+        unitLevel = GetUnitLevel(unitTag);
     end;
 
     if self.levelLabel then
-        if showLevel and unitLevel > 0 then
+        if showLevel and (veterancyRankData or unitLevel > 0) then
             self.levelLabel:SetHidden(false);
-            self.levelLabel:SetText(unitLevel);
             self.nameLabel:SetAnchor(TOPLEFT, self.levelLabel, TOPRIGHT, 10, 0);
+            if veterancyRankData then
+                self.levelLabel:SetText(zo_strformat(SI_VETERANCY_RANK_AND_TITLE_FORMATTER, unitLevel, veterancyRankData:GetName()));
+            else
+                self.levelLabel:SetText(unitLevel);
+            end;
         else
             self.levelLabel:SetHidden(true);
             self.nameLabel:SetAnchor(TOPLEFT);
         end;
     end;
 
-    if self.championIcon then
+    if self.veterancyRankIcon and veterancyRankData then
+        self.championIcon:SetHidden(true);
+        if unitLevel >= ZO_VETERANCY_MANAGER:GetNumRanks() then
+            veterancyRankData = ZO_VeterancyRankData:New(ZO_VETERANCY_MANAGER:GetNumRanks());
+        end;
+        self.veterancyRankIcon:SetTexture(veterancyRankData:GetIcon());
+        self.veterancyRankIcon:SetHidden(false);
+    elseif self.championIcon then
+        if self.veterancyRankIcon then
+            self.veterancyRankIcon:SetHidden(true);
+        end;
+
         if showLevel and isChampion then
             self.championIcon:SetHidden(false);
         else
@@ -2525,15 +2527,50 @@ function KFS_Frame:SetPlatformDifficultyTextures(difficulty)
     end;
 end;
 
+---@type table<number, string>
+local CHALLENGE_DIFFICULTY_NAME_LOOKUP =
+{
+    [OVERLAND_DIFFICULTY_TYPE_BASEGAME] = "basegame";
+    [OVERLAND_DIFFICULTY_TYPE_JOURNEYMAN] = "journeyman";
+    [OVERLAND_DIFFICULTY_TYPE_ADVENTURER] = "adventurer";
+    [OVERLAND_DIFFICULTY_TYPE_VETERAN] = "veteran";
+};
+
+---
+---@param difficulty number
+---@return nil
+function KFS_Frame:SetPlatformChallengeDifficultyTextures(difficulty)
+    local difficultyName = CHALLENGE_DIFFICULTY_NAME_LOOKUP[difficulty];
+    if KFS_IsGamepadPreferred() then
+        local texture = string.format("EsoUI/Art/UnitFrames/Gamepad/gp_targetUnitFrame_challengeDifficulty_%s.dds", difficultyName);
+        self.leftBracket:SetTexture(texture);
+        self.rightBracket:SetTexture(texture);
+        self.leftBracketGlow:SetHidden(true);
+        self.rightBracketGlow:SetHidden(true);
+    else
+        self.leftBracket:SetTexture(string.format("EsoUI/Art/UnitFrames/targetUnitFrame_challengeDifficulty_%s_left.dds", difficultyName));
+        self.rightBracket:SetTexture(string.format("EsoUI/Art/UnitFrames/targetUnitFrame_challengeDifficulty_%s_right.dds", difficultyName));
+        self.leftBracketGlow:SetHidden(true);
+        self.rightBracketGlow:SetHidden(true);
+    end;
+end;
+
 ---
 ---@return nil
 function KFS_Frame:UpdateDifficulty()
     if self.leftBracket then
-        local difficulty = GetUnitDifficulty(self:GetUnitTag());
+        local unitTag = self:GetUnitTag();
+        local isUnitPlayer = IsUnitPlayer(unitTag);
+        local difficulty = isUnitPlayer and GetUnitOverlandDifficulty(unitTag) or GetUnitDifficulty(unitTag);
 
-        -- show difficulty for neutral and hostile NPCs
-        local unitReaction = GetUnitReaction(self:GetUnitTag());
-        local showsDifficulty = (difficulty > MONSTER_DIFFICULTY_EASY) and (unitReaction == UNIT_REACTION_NEUTRAL or unitReaction == UNIT_REACTION_HOSTILE);
+        -- Show difficulty for neutral and hostile NPCs
+        local unitReaction = GetUnitReaction(unitTag);
+        local showsDifficulty = false;
+        if isUnitPlayer and difficulty > OVERLAND_DIFFICULTY_TYPE_BASEGAME then
+            showsDifficulty = true;
+        elseif (difficulty > MONSTER_DIFFICULTY_EASY) and (unitReaction == UNIT_REACTION_NEUTRAL or unitReaction == UNIT_REACTION_HOSTILE) then
+            showsDifficulty = true;
+        end;
 
         self.leftBracket:SetHidden(not showsDifficulty);
         self.rightBracket:SetHidden(not showsDifficulty);
@@ -2541,15 +2578,19 @@ function KFS_Frame:UpdateDifficulty()
         self.rightBracketUnderlay:SetHidden(true);
 
         if showsDifficulty then
-            self:SetPlatformDifficultyTextures(difficulty);
+            if isUnitPlayer then
+                self:SetPlatformChallengeDifficultyTextures(difficulty);
+            else
+                self:SetPlatformDifficultyTextures(difficulty);
 
-            if difficulty == MONSTER_DIFFICULTY_DEADLY and not KFS_IsGamepadPreferred() then
-                self.leftBracketUnderlay:SetHidden(false);
-                self.rightBracketUnderlay:SetHidden(false);
-            end;
+                if difficulty == MONSTER_DIFFICULTY_DEADLY and not KFS_IsGamepadPreferred() then
+                    self.leftBracketUnderlay:SetHidden(false);
+                    self.rightBracketUnderlay:SetHidden(false);
+                end;
 
-            if unitReaction == UNIT_REACTION_HOSTILE then
-                TriggerTutorial(TUTORIAL_TRIGGER_COMBAT_MONSTER_DIFFICULTY);
+                if unitReaction == UNIT_REACTION_HOSTILE then
+                    TriggerTutorial(TUTORIAL_TRIGGER_COMBAT_MONSTER_DIFFICULTY);
+                end;
             end;
         end;
     end;
@@ -2608,8 +2649,25 @@ function KFS_Frame:UpdateName()
             end;
         elseif IsUnitPlayer(tag) then
             name = ZO_GetPrimaryPlayerNameFromUnitTag(tag);
+
+            local unitDifficulty = GetUnitOverlandDifficulty(tag);
+            if unitDifficulty > OVERLAND_DIFFICULTY_TYPE_BASEGAME and GetOverlandDifficultyDisabledReason() == OVERLAND_DIFFICULTY_DISABLED_REASON_NONE then
+                -- Both UIs use the gamepad icons in this context.
+                local iconPath = ZO_CHALLENGE_DIFFICULTY_ICONS_GAMEPAD[unitDifficulty];
+                name = zo_iconTextFormatNoSpaceAlignedRight(iconPath, "115%", "115%", name);
+            end;
         else
             name = GetUnitName(tag);
+
+            local playerDifficulty = GetOverlandDifficulty();
+            if playerDifficulty > OVERLAND_DIFFICULTY_TYPE_BASEGAME
+                and IsUnitMonster(tag)
+                and IsUnitAttackable(tag)
+                and GetOverlandDifficultyDisabledReason() == OVERLAND_DIFFICULTY_DISABLED_REASON_NONE then
+                -- Both UIs use the gamepad icons in this context.
+                local iconPath = ZO_CHALLENGE_DIFFICULTY_ICONS_GAMEPAD[playerDifficulty];
+                name = zo_iconTextFormatNoSpaceAlignedRight(iconPath, "115%", "115%", name);
+            end;
         end;
 
         local nameText;
@@ -3507,33 +3565,32 @@ local function RegisterForEvents()
     end;
 
     --- @param unitTag string
-    --- @param powerIndex luaindex
+    --- @param powerPoolIndex luaindex
     --- @param powerType CombatMechanicFlags
-    --- @param powerValue integer
-    --- @param powerMax integer
-    --- @param powerEffectiveMax integer
+    --- @param powerPool integer
+    --- @param powerPoolMax integer
     --- @return nil
-    local function PowerUpdateHandlerFunction(unitTag, powerIndex, powerType, powerValue, powerMax, powerEffectiveMax)
+    local function PowerUpdateHandlerFunction(unitTag, powerPoolIndex, powerType, powerPool, powerPoolMax)
         local unitFrame = KFS_ManagerSingleton:GetFrame(unitTag);
         if unitFrame then
             if powerType == COMBAT_MECHANIC_FLAGS_HEALTH then
                 local oldHealth = unitFrame.healthBar.currentValue;
-                unitFrame.healthBar:Update(COMBAT_MECHANIC_FLAGS_HEALTH, powerValue, powerMax);
-                unitFrame.cachedHealth = powerValue;
-                unitFrame.cachedMaxHealth = powerMax;
+                unitFrame.healthBar:Update(COMBAT_MECHANIC_FLAGS_HEALTH, powerPool, powerPoolMax);
+                unitFrame.cachedHealth = powerPool;
+                unitFrame.cachedMaxHealth = powerPoolMax;
 
                 if oldHealth ~= nil and oldHealth == 0 then
                     -- Unit went from dead to non dead...update reaction
                     unitFrame:UpdateUnitReaction();
                 end;
             else
-                unitFrame:UpdatePowerBar(powerIndex, powerType, powerValue, powerMax);
+                unitFrame:UpdatePowerBar(powerPoolIndex, powerType, powerPool, powerPoolMax);
                 unitFrame.cachedPowers = unitFrame.cachedPowers or {};
-                unitFrame.cachedPowers[powerIndex] = { powerType = powerType; cur = powerValue; max = powerMax };
+                unitFrame.cachedPowers[powerPoolIndex] = { powerType = powerType; cur = powerPool; max = powerPoolMax };
             end;
         end;
     end;
-    KFS_MostRecentPowerUpdateHandler:New("KFS_UnitFrames", PowerUpdateHandlerFunction);
+    ZO_MostRecentPowerUpdateHandler:New("KFS_UnitFrames", PowerUpdateHandlerFunction);
 
     --- @param eventId integer
     --- @param unitTag string
