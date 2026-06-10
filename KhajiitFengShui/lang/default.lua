@@ -84,11 +84,14 @@ local strings =
     KFS_LABEL_ADV_ZONE_TRACKER = "Adventure Zone HUD Tracker";
     KFS_ENABLE_UNITFRAMES = "Enable UnitFrame Module";
     KFS_ENABLE_UNITFRAMES_DESC_RELOAD = "Enable UnitFrame Module.\n\n|cFF6666WARNING:|r Changing this setting will reload the UI.";
-    KFS_LABEL_UNITFRAME_SMALL_GROUP = "Unit Frame: Small Group";
-    KFS_LABEL_UNITFRAME_RAID_1 = "Unit Frame: Raid Group 1";
-    KFS_LABEL_UNITFRAME_RAID_2 = "Unit Frame: Raid Group 2";
-    KFS_LABEL_UNITFRAME_RAID_3 = "Unit Frame: Raid Group 3";
-    KFS_LABEL_UNITFRAME_TARGET = "Unit Frame: Target";
+    KFS_LABEL_UNITFRAME_SMALL_GROUP = "Small Group";
+    KFS_LABEL_UNITFRAME_RAID_1 = "Raid Column 1";
+    KFS_LABEL_UNITFRAME_RAID_2 = "Raid Column 2";
+    KFS_LABEL_UNITFRAME_RAID_3 = "Raid Column 3";
+    KFS_LABEL_UNITFRAME_RAID_4 = "Raid Column 4";
+    KFS_LABEL_UNITFRAME_RAID_5 = "Raid Column 5";
+    KFS_LABEL_UNITFRAME_RAID_6 = "Raid Column 6";
+    KFS_LABEL_UNITFRAME_TARGET = "Target";
 };
 
 for stringId, stringValue in pairs(strings) do

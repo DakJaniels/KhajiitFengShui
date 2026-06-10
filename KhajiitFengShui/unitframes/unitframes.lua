@@ -44,9 +44,86 @@ local KhajiitFengShui_UnitFrames_SavedVariables;
 local LCA = LibCombatAlerts; -- LibCombatAlerts (required dependency)
 
 ---
+---@param itemOrData any
+---@param fallback any|nil
+---@return any
+local function KFS_LHASDropdownItemToStoredValue(itemOrData, fallback)
+    if itemOrData == nil then
+        return fallback;
+    end;
+    if type(itemOrData) == "table" then
+        if itemOrData.data ~= nil then
+            return itemOrData.data;
+        end;
+        if itemOrData.name ~= nil then
+            return itemOrData.name;
+        end;
+        return fallback;
+    end;
+    return itemOrData;
+end;
+
+---
+---@return string
+local function KFS_GetPlatformOverrideStored()
+    local v = KhajiitFengShui_UnitFrames_SavedVariables and KhajiitFengShui_UnitFrames_SavedVariables.general and KhajiitFengShui_UnitFrames_SavedVariables.general.platformOverride or "auto";
+    v = KFS_LHASDropdownItemToStoredValue(v, "auto");
+    if v == "Auto" then v = "auto"; end;
+    if v == "Keyboard" then v = "keyboard"; end;
+    if v == "Gamepad" then v = "gamepad"; end;
+    if v ~= "keyboard" and v ~= "gamepad" then
+        v = "auto";
+    end;
+    return v;
+end;
+
+local PLATFORM_OVERRIDE_DISPLAY_NAMES =
+{
+    auto = "Auto";
+    keyboard = "Keyboard";
+    gamepad = "Gamepad";
+};
+
+---
+---@param mode any
+---@return string|table
+local function KFS_BarTextModeDropdownGet(mode)
+    mode = KFS_LHASDropdownItemToStoredValue(mode, KFS_BAR_TEXT_MODE_HIDDEN);
+    if type(mode) ~= "number" then
+        mode = KFS_BAR_TEXT_MODE_HIDDEN;
+    end;
+    local name;
+    if mode == KFS_BAR_TEXT_MODE_SHOWN then
+        name = "Always On";
+    elseif mode == KFS_BAR_TEXT_MODE_MOUSE_OVER then
+        name = "Mouse Over";
+    else
+        name = "Hidden";
+    end;
+    if ZO_IsConsoleOrGameCoreUI() then
+        return { data = mode; };
+    end;
+    return name;
+end;
+
+---
+---@param item any
+---@return number
+local function KFS_BarTextModeDropdownSet(item)
+    local mode = KFS_LHASDropdownItemToStoredValue(item, KFS_BAR_TEXT_MODE_HIDDEN);
+    if type(mode) ~= "number" then
+        mode = KFS_BAR_TEXT_MODE_HIDDEN;
+    end;
+    return mode;
+end;
+
+---
 ---@return boolean
 local function KFS_IsGamepadPreferred()
-    local override = KhajiitFengShui_UnitFrames_SavedVariables and KhajiitFengShui_UnitFrames_SavedVariables.general and KhajiitFengShui_UnitFrames_SavedVariables.general.platformOverride;
+    if not KhajiitFengShui_UnitFrames_SavedVariables then
+        return IsInGamepadPreferredMode();
+    end;
+    local override = KFS_GetPlatformOverrideStored();
     if override == "gamepad" then return true; end;
     if override == "keyboard" then return false; end;
     return IsInGamepadPreferredMode();
@@ -282,6 +359,31 @@ end;
 ---@type fun(): KFS_PlatformConstants
 local GetPlatformConstants = KFS_GetPlatformConstants;
 
+--- Playable raid member cap (12). MAX_GROUP_SIZE_THRESHOLD (24) reserves UI slots the game cannot fill.
+local KFS_PLAYABLE_RAID_MEMBER_COUNT = 12;
+
+---
+--- Movable raid column count for layout (not NUM_SUBGROUPS anchor slots).
+---@return number
+local function KFS_GetRaidLayoutColumnCount()
+    local constants = GetPlatformConstants();
+    if KFS_IsGamepadPreferred() then
+        return constants.NUM_COLUMNS;
+    end;
+    return zo_floor((KFS_PLAYABLE_RAID_MEMBER_COUNT - 1) / constants.GROUP_FRAMES_PER_COLUMN) + 1;
+end;
+
+---
+--- Raid frames stacked in one layout column (12-player cap), not gamepad GROUP_FRAMES_PER_COLUMN (24-slot backend).
+---@param constants KFS_PlatformConstants
+---@return number
+local function KFS_GetRaidFramesPerLayoutColumn(constants)
+    if constants == GAMEPAD_CONSTANTS then
+        return KFS_PLAYABLE_RAID_MEMBER_COUNT / constants.NUM_COLUMNS;
+    end;
+    return constants.GROUP_FRAMES_PER_COLUMN;
+end;
+
 ---
 ---@return nil
 local function CalculateDynamicPlatformConstants()
@@ -299,7 +401,8 @@ local function CalculateDynamicPlatformConstants()
         constants.RAID_FRAME_OFFSET_Y = constants.RAID_FRAME_SIZE_Y + constants.RAID_FRAME_PAD_Y;
 
         constants.RAID_FRAME_ANCHOR_CONTAINER_WIDTH = constants.RAID_FRAME_SIZE_X;
-        constants.RAID_FRAME_ANCHOR_CONTAINER_HEIGHT = (constants.RAID_FRAME_SIZE_Y + constants.RAID_FRAME_PAD_Y) * constants.GROUP_FRAMES_PER_COLUMN;
+        local raidFramesPerColumn = KFS_GetRaidFramesPerLayoutColumn(constants);
+        constants.RAID_FRAME_ANCHOR_CONTAINER_HEIGHT = (constants.RAID_FRAME_SIZE_Y + constants.RAID_FRAME_PAD_Y) * raidFramesPerColumn;
     end;
 end;
 
@@ -335,12 +438,14 @@ local function GetGroupFrameAnchor(groupIndex, groupSize, previousFrame, previou
     local row = zo_mod(groupIndex - 1, constants.GROUP_FRAMES_PER_COLUMN);
 
     if groupSize > STANDARD_GROUP_SIZE_THRESHOLD then
-        if IsInGamepadPreferredMode() then
+        if KFS_IsGamepadPreferred() then
             column = zo_mod(groupIndex - 1, constants.NUM_COLUMNS);
             row = zo_floor((groupIndex - 1) / 2);
         end;
+        local scales = KhajiitFengShui_UnitFrames_SavedVariables and KhajiitFengShui_UnitFrames_SavedVariables.general and KhajiitFengShui_UnitFrames_SavedVariables.general.scales;
+        local raidScale = (scales and scales.raid) or 1.0;
         groupFrameAnchor:SetTarget(GetControl("KFS_LargeGroupAnchorFrame" .. (column + 1)));
-        groupFrameAnchor:SetOffsets(0, row * constants.RAID_FRAME_OFFSET_Y);
+        groupFrameAnchor:SetOffsets(0, row * constants.RAID_FRAME_OFFSET_Y * raidScale);
         return groupFrameAnchor;
     else
         -- The Y offset for this anchor should be the total y offset of the previous frame + the size of the previous frame
@@ -612,16 +717,23 @@ function KFS_RegisterUnitFramePanels()
 
     mainAddon:TryCreatePanel(smallGroupDef);
 
-    -- Register raid group panels (console/gamepad only has 2 groups, not 3)
-    local maxRaidGroups = IsConsoleUI() and 2 or NUM_SUBGROUPS;
+    local maxRaidGroups = KFS_GetRaidLayoutColumnCount();
+    local raidPanelLabels =
+    {
+        KFS_LABEL_UNITFRAME_RAID_1;
+        KFS_LABEL_UNITFRAME_RAID_2;
+        KFS_LABEL_UNITFRAME_RAID_3;
+        KFS_LABEL_UNITFRAME_RAID_4;
+        KFS_LABEL_UNITFRAME_RAID_5;
+        KFS_LABEL_UNITFRAME_RAID_6;
+    };
     for i = 1, maxRaidGroups do
         local raidId = string.format("unitFrameRaid%d", i);
-        local labelId = string.format("KFS_LABEL_UNITFRAME_RAID_%d", i);
         local raidDef =
         {
             id = raidId;
             controlName = string.format("KFS_LargeGroupAnchorFrame%d", i);
-            label = _G[labelId];
+            label = raidPanelLabels[i];
             condition = function ()
                 return GetControl(string.format("KFS_LargeGroupAnchorFrame%d", i)) ~= nil;
             end;
@@ -923,9 +1035,15 @@ function KFS_Manager:UpdateGroupAnchorFrames()
         end;
     else
         local groupSizeWithCompanions = self:GetCombinedGroupSize();
+        local layoutColumnCount = KFS_GetRaidLayoutColumnCount();
         for subgroupIndex = 1, NUM_SUBGROUPS do
-            local subgroupThreshold = (subgroupIndex - 1) * STANDARD_GROUP_SIZE_THRESHOLD;
-            local frameIsHidden = groupSizeWithCompanions <= subgroupThreshold;
+            local frameIsHidden;
+            if KFS_IsGamepadPreferred() then
+                frameIsHidden = subgroupIndex > layoutColumnCount;
+            else
+                local subgroupThreshold = (subgroupIndex - 1) * STANDARD_GROUP_SIZE_THRESHOLD;
+                frameIsHidden = groupSizeWithCompanions <= subgroupThreshold;
+            end;
 
             local anchorFrame = GetControl("KFS_LargeGroupAnchorFrame" .. subgroupIndex);
             anchorFrame:SetHidden(frameIsHidden);
@@ -2886,7 +3004,7 @@ local function CreateGroupAnchorFrames()
 
         local x, y = GetGroupAnchorFrameOffsets(i, constants.GROUP_STRIDE, constants);
         KFS_ApplySavedAnchor(raidFrame, "raid" .. i, TOPLEFT, TOPLEFT, x, y);
-        KFS_ApplySavedScale(raidFrame, "raid", 1.0);
+        raidFrame:SetScale(1);
     end;
 end;
 
@@ -2982,7 +3100,7 @@ local function UpdateAnchorFrameVisuals()
         raidFrame:SetDimensions(constants.RAID_FRAME_ANCHOR_CONTAINER_WIDTH, constants.RAID_FRAME_ANCHOR_CONTAINER_HEIGHT);
         local offsetX, offsetY = GetGroupAnchorFrameOffsets(i, constants.GROUP_STRIDE, constants);
         KFS_ApplySavedAnchor(raidFrame, "raid" .. i, TOPLEFT, TOPLEFT, offsetX, offsetY);
-        KFS_ApplySavedScale(raidFrame, "raid", 1.0);
+        raidFrame:SetScale(1);
     end;
 
     CALLBACK_MANAGER:FireCallbacks("OnUnitFrameAnchorsUpdated");
@@ -4052,6 +4170,7 @@ function KFS_Initialize()
 
             -- SavedVars (account-wide)
             KhajiitFengShui_UnitFrames_SavedVariables = ZO_SavedVars:NewAccountWide("KhajiitFengShui_UnitFrames_SavedVariables", 1, nil, KFS_DEFAULTS);
+            KhajiitFengShui_UnitFrames_SavedVariables.general.platformOverride = KFS_GetPlatformOverrideStored();
 
             ---@class KFS_ManagerSingleton : KFS_Manager
             KFS_ManagerSingleton = KFS_Manager:New();
@@ -4145,17 +4264,24 @@ function KFS_Initialize()
                         { name = "Gamepad";  data = "gamepad";  };
                     };
                     getFunction = function ()
-                        local v = (KhajiitFengShui_UnitFrames_SavedVariables.general.platformOverride or "auto");
-                        -- Return the item name, not the data value
-                        if v == "keyboard" then return "Keyboard"; end;
-                        if v == "gamepad" then return "Gamepad"; end;
-                        return "Auto";
+                        local v = KFS_GetPlatformOverrideStored();
+                        if ZO_IsConsoleOrGameCoreUI() then
+                            return { data = v; };
+                        end;
+                        return PLATFORM_OVERRIDE_DISPLAY_NAMES[v] or "Auto";
                     end;
-                    setFunction = function (_, itemName, itemData)
+                    setFunction = function (_, _itemName, item)
                         if not KhajiitFengShui_UnitFrames_SavedVariables.general then
                             KhajiitFengShui_UnitFrames_SavedVariables.general = {};
                         end;
-                        KhajiitFengShui_UnitFrames_SavedVariables.general.platformOverride = (itemData ~= nil) and itemData or "auto";
+                        local stored = KFS_LHASDropdownItemToStoredValue(item, "auto");
+                        if stored == "Auto" then stored = "auto"; end;
+                        if stored == "Keyboard" then stored = "keyboard"; end;
+                        if stored == "Gamepad" then stored = "gamepad"; end;
+                        if stored ~= "keyboard" and stored ~= "gamepad" then
+                            stored = "auto";
+                        end;
+                        KhajiitFengShui_UnitFrames_SavedVariables.general.platformOverride = stored;
                         KFS_ManagerSingleton:ApplyVisualStyle();
                         UpdateGroupFramesVisualStyle();
                         UpdateLeaderIndicator();
@@ -4178,14 +4304,10 @@ function KFS_Initialize()
                         { name = "Always On";  data = KFS_BAR_TEXT_MODE_SHOWN;      };
                     };
                     getFunction = function ()
-                        local mode = KhajiitFengShui_UnitFrames_SavedVariables.general.context.reticleover.barTextMode;
-                        -- Return the item name, not the data value
-                        if mode == KFS_BAR_TEXT_MODE_SHOWN then return "Always On"; end;
-                        if mode == KFS_BAR_TEXT_MODE_MOUSE_OVER then return "Mouse Over"; end;
-                        return "Hidden";
+                        return KFS_BarTextModeDropdownGet(KhajiitFengShui_UnitFrames_SavedVariables.general.context.reticleover.barTextMode);
                     end;
-                    setFunction = function (_, itemName, itemData)
-                        KhajiitFengShui_UnitFrames_SavedVariables.general.context.reticleover.barTextMode = (itemData ~= nil) and itemData or KFS_BAR_TEXT_MODE_HIDDEN;
+                    setFunction = function (_, _itemName, item)
+                        KhajiitFengShui_UnitFrames_SavedVariables.general.context.reticleover.barTextMode = KFS_BarTextModeDropdownSet(item);
                         KFS_ManagerSingleton:ApplyVisualStyle();
                     end;
                     default = "Hidden";
@@ -4334,14 +4456,10 @@ function KFS_Initialize()
                         { name = "Always On";  data = KFS_BAR_TEXT_MODE_SHOWN;      };
                     };
                     getFunction = function ()
-                        local mode = KhajiitFengShui_UnitFrames_SavedVariables.general.context.reticleover.barTextMode;
-                        -- Return the item name, not the data value
-                        if mode == KFS_BAR_TEXT_MODE_SHOWN then return "Always On"; end;
-                        if mode == KFS_BAR_TEXT_MODE_MOUSE_OVER then return "Mouse Over"; end;
-                        return "Hidden";
+                        return KFS_BarTextModeDropdownGet(KhajiitFengShui_UnitFrames_SavedVariables.general.context.reticleover.barTextMode);
                     end;
-                    setFunction = function (_, itemName, itemData)
-                        KhajiitFengShui_UnitFrames_SavedVariables.general.context.reticleover.barTextMode = (itemData ~= nil) and itemData or KFS_BAR_TEXT_MODE_HIDDEN;
+                    setFunction = function (_, _itemName, item)
+                        KhajiitFengShui_UnitFrames_SavedVariables.general.context.reticleover.barTextMode = KFS_BarTextModeDropdownSet(item);
                         KFS_ManagerSingleton:ApplyVisualStyle();
                     end;
                     default = "Hidden";
@@ -4393,14 +4511,10 @@ function KFS_Initialize()
                         { name = "Always On";  data = KFS_BAR_TEXT_MODE_SHOWN;      };
                     };
                     getFunction = function ()
-                        local mode = KhajiitFengShui_UnitFrames_SavedVariables.general.context.reticleovertarget.barTextMode;
-                        -- Return the item name, not the data value
-                        if mode == KFS_BAR_TEXT_MODE_SHOWN then return "Always On"; end;
-                        if mode == KFS_BAR_TEXT_MODE_MOUSE_OVER then return "Mouse Over"; end;
-                        return "Hidden";
+                        return KFS_BarTextModeDropdownGet(KhajiitFengShui_UnitFrames_SavedVariables.general.context.reticleovertarget.barTextMode);
                     end;
-                    setFunction = function (_, itemName, itemData)
-                        KhajiitFengShui_UnitFrames_SavedVariables.general.context.reticleovertarget.barTextMode = (itemData ~= nil) and itemData or KFS_BAR_TEXT_MODE_HIDDEN;
+                    setFunction = function (_, _itemName, item)
+                        KhajiitFengShui_UnitFrames_SavedVariables.general.context.reticleovertarget.barTextMode = KFS_BarTextModeDropdownSet(item);
                         KFS_ManagerSingleton:ApplyVisualStyle();
                     end;
                     default = "Hidden";
@@ -4452,14 +4566,10 @@ function KFS_Initialize()
                         { name = "Always On";  data = KFS_BAR_TEXT_MODE_SHOWN;      };
                     };
                     getFunction = function ()
-                        local mode = KhajiitFengShui_UnitFrames_SavedVariables.general.context.group.barTextMode;
-                        -- Return the item name, not the data value
-                        if mode == KFS_BAR_TEXT_MODE_SHOWN then return "Always On"; end;
-                        if mode == KFS_BAR_TEXT_MODE_MOUSE_OVER then return "Mouse Over"; end;
-                        return "Hidden";
+                        return KFS_BarTextModeDropdownGet(KhajiitFengShui_UnitFrames_SavedVariables.general.context.group.barTextMode);
                     end;
-                    setFunction = function (_, itemName, itemData)
-                        KhajiitFengShui_UnitFrames_SavedVariables.general.context.group.barTextMode = (itemData ~= nil) and itemData or KFS_BAR_TEXT_MODE_HIDDEN;
+                    setFunction = function (_, _itemName, item)
+                        KhajiitFengShui_UnitFrames_SavedVariables.general.context.group.barTextMode = KFS_BarTextModeDropdownSet(item);
                         KFS_ManagerSingleton:ApplyVisualStyle();
                     end;
                     default = "Hidden";
@@ -4498,14 +4608,10 @@ function KFS_Initialize()
                         { name = "Always On";  data = KFS_BAR_TEXT_MODE_SHOWN;      };
                     };
                     getFunction = function ()
-                        local mode = KhajiitFengShui_UnitFrames_SavedVariables.general.context.raid.barTextMode;
-                        -- Return the item name, not the data value
-                        if mode == KFS_BAR_TEXT_MODE_SHOWN then return "Always On"; end;
-                        if mode == KFS_BAR_TEXT_MODE_MOUSE_OVER then return "Mouse Over"; end;
-                        return "Hidden";
+                        return KFS_BarTextModeDropdownGet(KhajiitFengShui_UnitFrames_SavedVariables.general.context.raid.barTextMode);
                     end;
-                    setFunction = function (_, itemName, itemData)
-                        KhajiitFengShui_UnitFrames_SavedVariables.general.context.raid.barTextMode = (itemData ~= nil) and itemData or KFS_BAR_TEXT_MODE_HIDDEN;
+                    setFunction = function (_, _itemName, item)
+                        KhajiitFengShui_UnitFrames_SavedVariables.general.context.raid.barTextMode = KFS_BarTextModeDropdownSet(item);
                         KFS_ManagerSingleton:ApplyVisualStyle();
                     end;
                     default = "Hidden";
@@ -4546,14 +4652,10 @@ function KFS_Initialize()
                         { name = "Always On";  data = KFS_BAR_TEXT_MODE_SHOWN;      };
                     };
                     getFunction = function ()
-                        local mode = KhajiitFengShui_UnitFrames_SavedVariables.general.context.companion.barTextMode;
-                        -- Return the item name, not the data value
-                        if mode == KFS_BAR_TEXT_MODE_SHOWN then return "Always On"; end;
-                        if mode == KFS_BAR_TEXT_MODE_MOUSE_OVER then return "Mouse Over"; end;
-                        return "Hidden";
+                        return KFS_BarTextModeDropdownGet(KhajiitFengShui_UnitFrames_SavedVariables.general.context.companion.barTextMode);
                     end;
-                    setFunction = function (_, itemName, itemData)
-                        KhajiitFengShui_UnitFrames_SavedVariables.general.context.companion.barTextMode = (itemData ~= nil) and itemData or KFS_BAR_TEXT_MODE_HIDDEN;
+                    setFunction = function (_, _itemName, item)
+                        KhajiitFengShui_UnitFrames_SavedVariables.general.context.companion.barTextMode = KFS_BarTextModeDropdownSet(item);
                         KFS_ManagerSingleton:ApplyVisualStyle();
                     end;
                     default = "Hidden";

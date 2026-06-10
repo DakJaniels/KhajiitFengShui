@@ -234,6 +234,8 @@ function KhajiitFengShui:SetPanelScale(panelId, scale)
     and (panelId == "playerHealth" or panelId == "playerMagicka" or panelId == "playerStamina")
     then
         self:ApplyPyramidLayout();
+    elseif self:IsMoverEnabled(panelId) then
+        self:ApplySavedPosition(panel);
     end;
 
     if panel.handler then
@@ -1143,10 +1145,7 @@ function KhajiitFengShui:RefreshSettingsAvailability()
         panel.moveDisabledByPyramid = pyramidEnabled and isPyramidBar;
     end;
 
-    local lhas = LibHarvensAddonSettings;
-    if self.settingsController and self.settingsController.UpdateControls and lhas and lhas.labelPool then
-        self.settingsController:UpdateControls();
-    elseif self.settingsController and self.settingsController.RefreshDynamicControls then
+    if self.settingsController and self.settingsController.RefreshDynamicControls then
         self.settingsController:RefreshDynamicControls();
     end;
 end;

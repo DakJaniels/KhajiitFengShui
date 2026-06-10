@@ -169,15 +169,9 @@ function SettingsController:AddPanelSetting(panel)
 end;
 
 function SettingsController:RefreshDynamicControls()
-    if not self.settingsPanel then
-        return;
-    end;
-
-    local lhas = self.addon and LibHarvensAddonSettings;
-    if self.settingsPanel.UpdateControls and lhas and lhas.labelPool then
-        self.settingsPanel:UpdateControls();
-    elseif self.settingsPanel.RefreshSettings then
-        self.settingsPanel:RefreshSettings();
+    local panel = self.settingsPanel;
+    if panel and panel.selected and panel.UpdateControls then
+        panel:UpdateControls();
     end;
 end;
 
@@ -217,6 +211,7 @@ function SettingsController:CreateSettingsMenu()
     {
         type = LibHarvensAddonSettings.ST_LABEL;
         label = GetString(KFS_SETTINGS_DESC);
+        canSelect = false;
     };
     controlCount = controlCount + 1;
 
@@ -422,6 +417,7 @@ function SettingsController:CreateSettingsMenu()
         {
             type = LibHarvensAddonSettings.ST_SECTION;
             label = GetString(KFS_SECTION_CONTROLS);
+            subMenu = false;
         });
     self.settingsPanel = settings;
     self.addon.settingsPanel = settings;
