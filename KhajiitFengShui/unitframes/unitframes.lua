@@ -234,13 +234,14 @@ KFS_GAMEPAD_GROUP_COMPANION_FRAME_WIDTH = 160;
 ---@type number
 KFS_GAMEPAD_GROUP_COMPANION_FRAME_HEIGHT = 130;
 
+internalassert(MAX_GROUP_SIZE_THRESHOLD == 24, "The max group size has changed, make sure that GROUP_FRAMES_PER_COLUMN and NUM_COLUMNS are updated accordingly");
 ---@type KFS_PlatformConstants
 local GAMEPAD_CONSTANTS =
 {
     GROUP_LEADER_ICON = "EsoUI/Art/UnitFrames/Gamepad/gp_Group_Leader.dds";
 
-    GROUP_FRAMES_PER_COLUMN = 6;
-    NUM_COLUMNS = MAX_GROUP_SIZE_THRESHOLD / 6; -- The denominator should be the same value as GROUP_FRAMES_PER_COLUMN
+    GROUP_FRAMES_PER_COLUMN = 12;
+    NUM_COLUMNS = MAX_GROUP_SIZE_THRESHOLD / 12; -- The denominator should be the same value as GROUP_FRAMES_PER_COLUMN
 
     GROUP_STRIDE = 3;
 
@@ -334,16 +335,14 @@ local function GetGroupFrameAnchor(groupIndex, groupSize, previousFrame, previou
     local row = zo_mod(groupIndex - 1, constants.GROUP_FRAMES_PER_COLUMN);
 
     if groupSize > STANDARD_GROUP_SIZE_THRESHOLD then
-        local raidScale = (KhajiitFengShui_UnitFrames_SavedVariables and KhajiitFengShui_UnitFrames_SavedVariables.general and KhajiitFengShui_UnitFrames_SavedVariables.general.scales and KhajiitFengShui_UnitFrames_SavedVariables.general.scales.raid) or 1.0;
-        if KFS_IsGamepadPreferred() then
+        if IsInGamepadPreferredMode() then
             column = zo_mod(groupIndex - 1, constants.NUM_COLUMNS);
             row = zo_floor((groupIndex - 1) / 2);
         end;
         groupFrameAnchor:SetTarget(GetControl("KFS_LargeGroupAnchorFrame" .. (column + 1)));
-        groupFrameAnchor:SetOffsets(0, row * constants.RAID_FRAME_OFFSET_Y * raidScale);
+        groupFrameAnchor:SetOffsets(0, row * constants.RAID_FRAME_OFFSET_Y);
         return groupFrameAnchor;
     else
-        local groupScale = (KhajiitFengShui_UnitFrames_SavedVariables and KhajiitFengShui_UnitFrames_SavedVariables.general and KhajiitFengShui_UnitFrames_SavedVariables.general.scales and KhajiitFengShui_UnitFrames_SavedVariables.general.scales.smallGroup) or 1.0;
         -- The Y offset for this anchor should be the total y offset of the previous frame + the size of the previous frame
         local previousOffsetY = 0;
         local previousSizeY = 0;
@@ -352,7 +351,7 @@ local function GetGroupFrameAnchor(groupIndex, groupSize, previousFrame, previou
         end;
 
         if previousCompanionFrame then
-            previousSizeY = ((previousCompanionFrame.hasTarget or previousCompanionFrame.hasPendingTarget) and constants.GROUP_COMPANION_FRAME_OFFSET_Y or constants.GROUP_FRAME_OFFSET_Y) * groupScale;
+            previousSizeY = (previousCompanionFrame.hasTarget or previousCompanionFrame.hasPendingTarget) and constants.GROUP_COMPANION_FRAME_OFFSET_Y or constants.GROUP_FRAME_OFFSET_Y;
         end;
         groupFrameAnchor:SetTarget(GetControl("KFS_SmallGroupAnchorFrame"));
         groupFrameAnchor:SetOffsets(0, previousOffsetY + previousSizeY);
@@ -370,8 +369,7 @@ local function GetGroupAnchorFrameOffsets(subgroupIndex, groupStride, constants)
     local zeroBasedIndex = subgroupIndex - 1;
     local row = zo_floor(zeroBasedIndex / groupStride);
     local column = zeroBasedIndex - (row * groupStride);
-    local raidScale = (KhajiitFengShui_UnitFrames_SavedVariables and KhajiitFengShui_UnitFrames_SavedVariables.general and KhajiitFengShui_UnitFrames_SavedVariables.general.scales and KhajiitFengShui_UnitFrames_SavedVariables.general.scales.raid) or 1.0;
-    return (constants.RAID_FRAME_BASE_OFFSET_X + (column * constants.RAID_FRAME_OFFSET_X)) * raidScale, (constants.RAID_FRAME_BASE_OFFSET_Y + (row * constants.RAID_FRAME_ANCHOR_CONTAINER_HEIGHT)) * raidScale;
+    return constants.RAID_FRAME_BASE_OFFSET_X + (column * constants.RAID_FRAME_OFFSET_X), constants.RAID_FRAME_BASE_OFFSET_Y + (row * constants.RAID_FRAME_ANCHOR_CONTAINER_HEIGHT);
 end;
 
 ---
@@ -2859,16 +2857,14 @@ local function CreateGroupAnchorFrames()
 
     -- Create small group anchor frame
     local smallFrame = CreateControlFromVirtual("KFS_SmallGroupAnchorFrame", KFS_UnitFramesGroups, "KFS_GroupFrameAnchor");
-    local groupScale = (KhajiitFengShui_UnitFrames_SavedVariables and KhajiitFengShui_UnitFrames_SavedVariables.general and KhajiitFengShui_UnitFrames_SavedVariables.general.scales and KhajiitFengShui_UnitFrames_SavedVariables.general.scales.smallGroup) or 1.0;
-    smallFrame:SetDimensions(constants.GROUP_FRAME_SIZE_X * groupScale, (constants.GROUP_FRAME_SIZE_Y + constants.GROUP_FRAME_PAD_Y) * STANDARD_GROUP_SIZE_THRESHOLD * groupScale);
+    smallFrame:SetDimensions(constants.GROUP_FRAME_SIZE_X, (constants.GROUP_FRAME_SIZE_Y + constants.GROUP_FRAME_PAD_Y) * STANDARD_GROUP_SIZE_THRESHOLD);
     KFS_ApplySavedAnchor(smallFrame, "smallGroup", TOPLEFT, TOPLEFT, constants.GROUP_FRAME_BASE_OFFSET_X, constants.GROUP_FRAME_BASE_OFFSET_Y);
     KFS_ApplySavedScale(smallFrame, "smallGroup", 1.0);
 
     -- Create raid group anchor frames, these are positioned at the default locations
     for i = 1, NUM_SUBGROUPS do
         local raidFrame = CreateControlFromVirtual("KFS_LargeGroupAnchorFrame" .. i, KFS_UnitFramesGroups, "KFS_RaidFrameAnchor");
-        local raidScale = (KhajiitFengShui_UnitFrames_SavedVariables and KhajiitFengShui_UnitFrames_SavedVariables.general and KhajiitFengShui_UnitFrames_SavedVariables.general.scales and KhajiitFengShui_UnitFrames_SavedVariables.general.scales.raid) or 1.0;
-        raidFrame:SetDimensions(constants.RAID_FRAME_ANCHOR_CONTAINER_WIDTH * raidScale, constants.RAID_FRAME_ANCHOR_CONTAINER_HEIGHT * raidScale);
+        raidFrame:SetDimensions(constants.RAID_FRAME_ANCHOR_CONTAINER_WIDTH, constants.RAID_FRAME_ANCHOR_CONTAINER_HEIGHT);
 
         local groupNameLabel = raidFrame:GetNamedChild("GroupName");
         local battlegroundIconTexture = raidFrame:GetNamedChild("BattlegroundTeam");
@@ -2934,8 +2930,7 @@ local function UpdateAnchorFrameVisuals()
 
     -- Note: Small group anchor frame is currently the same for all platforms.
     local groupFrame = GetControl("KFS_SmallGroupAnchorFrame");
-    local groupScale = (KhajiitFengShui_UnitFrames_SavedVariables and KhajiitFengShui_UnitFrames_SavedVariables.general and KhajiitFengShui_UnitFrames_SavedVariables.general.scales and KhajiitFengShui_UnitFrames_SavedVariables.general.scales.smallGroup) or 1.0;
-    groupFrame:SetDimensions(constants.GROUP_FRAME_SIZE_X * groupScale, (constants.GROUP_FRAME_SIZE_Y + constants.GROUP_FRAME_PAD_Y) * STANDARD_GROUP_SIZE_THRESHOLD * groupScale);
+    groupFrame:SetDimensions(constants.GROUP_FRAME_SIZE_X, (constants.GROUP_FRAME_SIZE_Y + constants.GROUP_FRAME_PAD_Y) * STANDARD_GROUP_SIZE_THRESHOLD);
     KFS_ApplySavedAnchor(groupFrame, "smallGroup", TOPLEFT, TOPLEFT, constants.GROUP_FRAME_BASE_OFFSET_X, constants.GROUP_FRAME_BASE_OFFSET_Y);
     KFS_ApplySavedScale(groupFrame, "smallGroup", 1.0);
 
@@ -2984,8 +2979,7 @@ local function UpdateAnchorFrameVisuals()
             end;
         end;
 
-        local raidScale = (KhajiitFengShui_UnitFrames_SavedVariables and KhajiitFengShui_UnitFrames_SavedVariables.general and KhajiitFengShui_UnitFrames_SavedVariables.general.scales and KhajiitFengShui_UnitFrames_SavedVariables.general.scales.raid) or 1.0;
-        raidFrame:SetDimensions(constants.RAID_FRAME_ANCHOR_CONTAINER_WIDTH * raidScale, constants.RAID_FRAME_ANCHOR_CONTAINER_HEIGHT * raidScale);
+        raidFrame:SetDimensions(constants.RAID_FRAME_ANCHOR_CONTAINER_WIDTH, constants.RAID_FRAME_ANCHOR_CONTAINER_HEIGHT);
         local offsetX, offsetY = GetGroupAnchorFrameOffsets(i, constants.GROUP_STRIDE, constants);
         KFS_ApplySavedAnchor(raidFrame, "raid" .. i, TOPLEFT, TOPLEFT, offsetX, offsetY);
         KFS_ApplySavedScale(raidFrame, "raid", 1.0);
