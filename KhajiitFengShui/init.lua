@@ -1,5 +1,5 @@
 local ADDON_NAME = "KhajiitFengShui";
-local ADDON_VERSION = "1.3.6";
+local ADDON_VERSION = "1.3.7";
 
 ---@class KFS_SavedVars
 ---@field grid { enabled: boolean, size: number }
@@ -73,6 +73,7 @@ local ADDON_VERSION = "1.3.6";
 ---@field globalCooldownActive boolean
 ---@field groupFrameHooksRegistered boolean
 ---@field advZoneHUDTrackerHookRegistered boolean
+---@field playerAttributeBarsHookRegistered boolean
 ---@field LHAS LibHarvensAddonSettings LibHarvensAddonSettings instance
 ---@field settingsPanel table|nil Settings panel instance
 ---@field defaults KFS_Defaults Default configuration values
@@ -112,6 +113,7 @@ KhajiitFengShui =
     globalCooldownActive = false;
     groupFrameHooksRegistered = false;
     advZoneHUDTrackerHookRegistered = false;
+    playerAttributeBarsHookRegistered = false;
     defaults =
     {
         grid =

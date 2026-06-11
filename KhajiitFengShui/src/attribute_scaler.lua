@@ -207,8 +207,13 @@ function AttributeScaler:ReapplyAll()
             end;
             if currentControl then
                 self:ApplyScaleToControl(currentControl, entry.scale);
-                if entry.panel and entry.panel.overlay and KhajiitFengShui.PanelUtils then
-                    KhajiitFengShui.PanelUtils.syncOverlaySize(entry.panel);
+                if entry.panel and entry.panel.overlay then
+                    local addon = KhajiitFengShui;
+                    if addon and addon.SyncPanelOverlaySize then
+                        addon:SyncPanelOverlaySize(entry.panel);
+                    else
+                        KhajiitFengShui.PanelUtils.syncOverlaySize(entry.panel);
+                    end;
                 end;
             end;
         end;
@@ -448,7 +453,12 @@ function AttributeScaler:Apply(panel, scale)
     self:ApplyScaleToControl(control, scale);
 
     if panel.overlay then
-        KhajiitFengShui.PanelUtils.syncOverlaySize(panel);
+        local addon = KhajiitFengShui;
+        if addon and addon.SyncPanelOverlaySize then
+            addon:SyncPanelOverlaySize(panel);
+        else
+            KhajiitFengShui.PanelUtils.syncOverlaySize(panel);
+        end;
     end;
 end;
 

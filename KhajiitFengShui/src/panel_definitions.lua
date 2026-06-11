@@ -4,18 +4,18 @@ local PanelUtils = KhajiitFengShui.PanelUtils;
 ---@class KhajiitFengShuiPanelDefinition
 ---@field id string Unique identifier for the panel
 ---@field controlName string Name of the game control to track
----@field label integer String constant for localized label
----@field width number|function Width in pixels or function that returns width
----@field height number|function Height in pixels or function that returns height
----@field anchorPoint integer Anchor point constant (TOPLEFT, CENTER, etc)
----@field anchorRelativePoint integer Relative anchor point on GuiRoot
----@field anchorApply fun(panel: KhajiitFengShuiPanel, left: number, top: number) Custom anchor application function
----@field scaleApply fun(panel: KhajiitFengShuiPanel, scale: number) Custom scale application function
----@field preApply fun(control: userdata, hasCustomPosition: boolean) Called before applying position
----@field postApply fun(control: userdata, hasCustomPosition: boolean) Called after applying position
----@field condition fun(): boolean Function to check if panel should be created
----@field fragmentGlobalName string? Global name for ZO_HUDFadeSceneFragment (user hide toggle)
----@field supportsUserHidden boolean? If true, settings expose hide checkbox using fragmentGlobalName
+---@field label? string String constant for localized label
+---@field width? number|function Width in pixels or function that returns width
+---@field height? number|function Height in pixels or function that returns height
+---@field anchorPoint? integer Anchor point constant (TOPLEFT, CENTER, etc)
+---@field anchorRelativePoint? integer Relative anchor point on GuiRoot
+---@field anchorApply? fun(panel: KhajiitFengShuiPanel, left: number, top: number) Custom anchor application function
+---@field scaleApply? fun(panel: KhajiitFengShuiPanel, scale: number) Custom scale application function
+---@field preApply? fun(control: userdata, hasCustomPosition: boolean) Called before applying position
+---@field postApply? fun(control: userdata, hasCustomPosition: boolean) Called after applying position
+---@field condition? fun(): boolean Function to check if panel should be created
+---@field fragmentGlobalName? string Global name for ZO_HUDFadeSceneFragment (user hide toggle)
+---@field supportsUserHidden? boolean If true, settings expose hide checkbox using fragmentGlobalName
 
 ---@type KhajiitFengShuiPanelDefinition[]
 local definitions =

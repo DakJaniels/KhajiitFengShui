@@ -3114,7 +3114,7 @@ local function DoGroupUpdate()
     UpdateAnchorFrameVisuals();
 end;
 
----@type table<number, table<number, number>>
+---@type table  <[DerivedStats], table<number, string>>
 local TARGET_ATTRIBUTE_VISUALIZER_SOUNDS =
 {
     [STAT_HEALTH_MAX] =

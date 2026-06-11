@@ -133,10 +133,129 @@ local function UpdateOverlayLabel(panel, message)
     PanelUtils.updateOverlayLabel(panel.label, message);
 end;
 
----Syncs overlay size to control
+---@param panelId string
+---@return boolean
+local function isPrimaryAttributePanelId(panelId)
+    return panelId == "playerHealth"
+        or panelId == "playerMagicka"
+        or panelId == "playerStamina";
+end;
+
+---Gets layout-space width (before transform scale) for an attribute bar control
 ---@param panel KhajiitFengShuiPanel
-local function SyncOverlaySize(panel)
-    PanelUtils.syncOverlaySize(panel);
+---@return number
+local function getLayoutBarWidth(panel)
+    if not panel or not panel.control then
+        return panel and panel.definition and panel.definition.width or 237;
+    end;
+
+    local actualWidth = panel.control:GetWidth();
+    if actualWidth and actualWidth > 0 then
+        return actualWidth;
+    end;
+
+    return panel.definition.width or 237;
+end;
+
+---Gets layout-space height (before transform scale) for an attribute bar control
+---@param panel KhajiitFengShuiPanel
+---@return number
+local function getLayoutBarHeight(panel)
+    if not panel or not panel.control then
+        return panel and panel.definition and panel.definition.height or 23;
+    end;
+
+    local actualHeight = panel.control:GetHeight();
+    if actualHeight and actualHeight > 0 then
+        return actualHeight;
+    end;
+
+    return panel.definition.height or 23;
+end;
+
+---Gets scale applied on the control (TransformScale for attribute bars, else SetScale)
+---@param control userdata?
+---@param fallbackScale number?
+---@return number
+local function getAppliedControlScale(control, fallbackScale)
+    if control then
+        if control.GetTransformScale then
+            local transformScale = control:GetTransformScale();
+            if transformScale and transformScale > 0 then
+                return transformScale;
+            end;
+        end;
+        if control.GetScale then
+            local legacyScale = control:GetScale();
+            if legacyScale and legacyScale > 0 then
+                return legacyScale;
+            end;
+        end;
+    end;
+    return fallbackScale or 1;
+end;
+
+---Gets on-screen width for pyramid layout and mover overlays (layout size × transform scale)
+---@param panel KhajiitFengShuiPanel
+---@param scale number
+---@return number
+local function getExpectedBarWidth(panel, scale)
+    local layoutWidth = getLayoutBarWidth(panel);
+    local appliedScale = getAppliedControlScale(panel and panel.control, scale);
+    return zo_round(layoutWidth * appliedScale);
+end;
+
+---Gets on-screen height for pyramid layout and mover overlays (layout size × transform scale)
+---@param panel KhajiitFengShuiPanel
+---@param scale number
+---@return number
+local function getExpectedBarHeight(panel, scale)
+    local layoutHeight = getLayoutBarHeight(panel);
+    local appliedScale = getAppliedControlScale(panel and panel.control, scale);
+    return zo_round(layoutHeight * appliedScale);
+end;
+
+---Vertical gap between pyramid rows for the given bar scales
+---@param healthScale number
+---@param magickaScale number
+---@param staminaScale number
+---@param alwaysExpanded boolean
+---@return number
+local function getPyramidVerticalSpacing(healthScale, magickaScale, staminaScale, alwaysExpanded)
+    local baseVerticalSpacing = alwaysExpanded and 15 or 5;
+    local scaleAdjustment = zo_max(healthScale, magickaScale, staminaScale);
+    local extraForLargeScale = scaleAdjustment > 1 and (scaleAdjustment - 1) * 8 or 0;
+    return (baseVerticalSpacing + extraForLargeScale) * scaleAdjustment;
+end;
+
+---Distance from screen bottom to top row of pyramid (scales with bar size)
+---@param screenHeight number
+---@param healthScale number
+---@param magickaScale number
+---@param staminaScale number
+---@return number baseHealthTop
+local function getPyramidBaseHealthTop(screenHeight, healthScale, magickaScale, staminaScale)
+    local scaleAdjustment = zo_max(healthScale, magickaScale, staminaScale);
+    return screenHeight - zo_round(100 * scaleAdjustment);
+end;
+
+---Syncs mover overlay to panel control visual bounds
+---@param addon KhajiitFengShui
+---@param panel KhajiitFengShuiPanel
+local function SyncOverlaySize(addon, panel)
+    if not panel then
+        return;
+    end;
+
+    local widthOverride;
+    local heightOverride;
+    local panelId = panel.definition and panel.definition.id;
+    if isPrimaryAttributePanelId(panelId) then
+        widthOverride = getLayoutBarWidth(panel);
+        heightOverride = getLayoutBarHeight(panel);
+    end;
+
+    PanelUtils.syncOverlaySize(panel, widthOverride, heightOverride);
 end;
 
 ---Gets scale for a panel
@@ -227,7 +346,7 @@ function KhajiitFengShui:SetPanelScale(panelId, scale)
         local hasCustomPosition = self.savedVars.positions and self.savedVars.positions[panelId] ~= nil;
         panel.definition.postApply(panel.control, hasCustomPosition);
     end;
-    SyncOverlaySize(panel);
+    SyncOverlaySize(self, panel);
 
     if
         self.savedVars.pyramidLayoutEnabled
@@ -471,6 +590,64 @@ function KhajiitFengShui:EnsureAdvZoneHUDTrackerHook()
     ZO_PostHook(ZO_AdventureZoneHUDTracker, "RefreshAnchors", GenerateFlatClosure(self.OnAdvZoneHUDTrackerRefreshAnchorsAfter, self));
 
     self.advZoneHUDTrackerHookRegistered = true;
+end;
+
+---Reapplies attribute bar positions after vanilla PlayerAttributeBars refreshes layout
+function KhajiitFengShui:OnPlayerAttributeBarsLayoutRefresh()
+    if not self.savedVars or not self.panelLookup then
+        return;
+    end;
+
+    if self.savedVars.pyramidLayoutEnabled then
+        self:ApplyPyramidLayoutImmediate(false);
+        return;
+    end;
+
+    for _, panelId in ipairs({ "playerHealth"; "playerMagicka"; "playerStamina" }) do
+        local panel = self.panelLookup[panelId];
+        if panel and panel.handler and self:IsMoverEnabled(panelId) then
+            local savedPosition = self.savedVars.positions and self.savedVars.positions[panelId];
+            if savedPosition then
+                panel.handler:UpdatePosition(savedPosition);
+                PanelUtils.applyControlAnchorFromPosition(panel, savedPosition, 0);
+                SyncOverlaySize(self, panel);
+            end;
+        end;
+    end;
+end;
+
+---Ensures PostHook runs after PlayerAttributeBars layout changes so KFS positions persist
+function KhajiitFengShui:EnsurePlayerAttributeBarsHook()
+    if self.playerAttributeBarsHookRegistered then
+        return;
+    end;
+
+    if not ZO_PostHook or not ZO_PlayerAttributeBars then
+        return;
+    end;
+
+    ZO_PostHook(
+        ZO_PlayerAttributeBars,
+        "ApplyStyle",
+        function ()
+            zo_callLater(GenerateFlatClosure(self.OnPlayerAttributeBarsLayoutRefresh, self), 0);
+        end
+    );
+    ZO_PostHook(
+        ZO_PlayerAttributeBars,
+        "OnScreenResized",
+        function ()
+            zo_callLater(GenerateFlatClosure(self.OnPlayerAttributeBarsLayoutRefresh, self), 0);
+        end
+    );
+
+    self.playerAttributeBarsHookRegistered = true;
+end;
+
+---Syncs mover overlay dimensions for a panel (used from AttributeScaler and elsewhere)
+---@param panel KhajiitFengShuiPanel
+function KhajiitFengShui:SyncPanelOverlaySize(panel)
+    SyncOverlaySize(self, panel);
 end;
 
 ---Ensures quest tracker hooks are registered for gamepad mode
@@ -782,15 +959,13 @@ function KhajiitFengShui:ApplySavedPosition(panel)
 
     if savedPosition then
         handler:UpdatePosition(savedPosition);
-        local gridSize = self:GetSnapSize();
-        PanelUtils.applyControlAnchorFromPosition(panel, savedPosition, gridSize);
+        PanelUtils.applyControlAnchorFromPosition(panel, savedPosition, 0);
     else
         local left = panel.control:GetLeft();
         local top = panel.control:GetTop();
         local defaultPosition = { left = left; top = top };
         handler:UpdatePosition(defaultPosition);
-        local gridSize = self:GetSnapSize();
-        PanelUtils.applyControlAnchorFromPosition(panel, defaultPosition, gridSize);
+        PanelUtils.applyControlAnchorFromPosition(panel, defaultPosition, 0);
     end;
 
     if panel.definition.preApply then
@@ -803,58 +978,11 @@ function KhajiitFengShui:ApplySavedPosition(panel)
     end;
 
     -- Sync overlay size and position to match control after applying saved position
-    PanelUtils.syncOverlaySize(panel);
+    SyncOverlaySize(self, panel);
 
     local message = self:BuildOverlayMessage(panel, panel.control:GetLeft(), panel.control:GetTop());
     UpdateOverlayLabel(panel, message);
     self:RefreshPanelState(panel);
-end;
-
----Gets expected bar width with scale applied
----@param panel KhajiitFengShuiPanel
----@param scale number
----@return number
-local function getExpectedBarWidth(panel, scale)
-    if not panel or not panel.control then
-        return (panel and panel.definition and panel.definition.width or 237) * (scale or 1);
-    end;
-
-    local alwaysExpanded = KhajiitFengShui.AttributeScaler and AttributeScaler.alwaysExpandedEnabled or false;
-
-    if alwaysExpanded and AttributeScaler and AttributeScaler.shrinkExpandModule then
-        local module = AttributeScaler.shrinkExpandModule;
-        local originalWidths = AttributeScaler.originalWidths;
-
-        if originalWidths and originalWidths.expandedWidth then
-            return zo_round(originalWidths.expandedWidth * scale);
-        elseif module and module.expandedWidth then
-            return zo_round(module.expandedWidth * scale);
-        end;
-    end;
-
-    local actualWidth = panel.control:GetWidth();
-    if actualWidth and actualWidth > 0 then
-        return actualWidth;
-    end;
-
-    return (panel.definition.width or 237) * scale;
-end;
-
----Gets expected bar height with scale applied
----@param panel KhajiitFengShuiPanel
----@param scale number
----@return number
-local function getExpectedBarHeight(panel, scale)
-    if not panel or not panel.control then
-        return (panel and panel.definition and panel.definition.height or 23) * (scale or 1);
-    end;
-
-    local actualHeight = panel.control:GetHeight();
-    if actualHeight and actualHeight > 0 then
-        return actualHeight;
-    end;
-
-    return (panel.definition.height or 23) * scale;
 end;
 
 ---Starts moving a control
@@ -879,49 +1007,29 @@ end;
 ---@param handler LibCombatAlerts.MoveableControl
 function KhajiitFengShui:OnMoveStart(panel, handler)
     local updateName = string.format("%s_MoveUpdate_%s", self.name, panel.definition.id);
+    local panelId = panel.definition.id;
+    local pyramidDrag = self.editModeActive
+        and self.savedVars.pyramidLayoutEnabled
+        and isPrimaryAttributePanelId(panelId);
 
-    -- Only apply pyramid layout updates when in edit mode and actively dragging
-    -- When using settings move button, treat as individual bar movement
-    if
-        self.editModeActive
-    and self.savedVars.pyramidLayoutEnabled
-    and (
-        panel.definition.id == "playerHealth"
-        or panel.definition.id == "playerMagicka"
-        or panel.definition.id == "playerStamina"
-    )
-    then
-        local healthPanel = self.panelLookup["playerHealth"];
-        local magickaPanel = self.panelLookup["playerMagicka"];
-        local staminaPanel = self.panelLookup["playerStamina"];
-
-        if
-            healthPanel
-        and healthPanel.handler
-        and magickaPanel
-        and magickaPanel.handler
-        and staminaPanel
-        and staminaPanel.handler
-        then
-            em:RegisterForUpdate(updateName, 200, function ()
-                local left, top = PanelUtils.getAnchorPosition(handler);
-                self:UpdatePyramidLayoutFromPosition(panel.definition.id, left, top);
-            end);
-        end;
-    else
-        em:RegisterForUpdate(updateName, 200, function ()
-            local left, top = PanelUtils.getAnchorPosition(handler);
+    em:RegisterForUpdate(updateName, 0, function ()
+        local left, top = PanelUtils.getAnchorPosition(handler);
+        if pyramidDrag then
+            self:UpdatePyramidLayoutFromPosition(panelId, left, top, false);
+        else
+            PanelUtils.applyControlAnchor(panel, left, top);
             local message = self:BuildOverlayMessage(panel, left, top);
             UpdateOverlayLabel(panel, message);
-        end);
-    end;
+        end;
+    end);
 end;
 
 ---Updates pyramid layout from a moved panel position
 ---@param movedPanelId string
 ---@param left number
 ---@param top number
-function KhajiitFengShui:UpdatePyramidLayoutFromPosition(movedPanelId, left, top)
+---@param applyGridSnapOnOffset boolean?
+function KhajiitFengShui:UpdatePyramidLayoutFromPosition(movedPanelId, left, top, applyGridSnapOnOffset)
     local healthPanel = self.panelLookup["playerHealth"];
     local magickaPanel = self.panelLookup["playerMagicka"];
     local staminaPanel = self.panelLookup["playerStamina"];
@@ -953,11 +1061,9 @@ function KhajiitFengShui:UpdatePyramidLayoutFromPosition(movedPanelId, left, top
     local screenHeight = GuiRoot:GetHeight();
 
     local alwaysExpanded = AttributeScaler and AttributeScaler.alwaysExpandedEnabled or false;
-    local baseVerticalSpacing = alwaysExpanded and 15 or 5;
-    local scaleAdjustment = zo_max(healthScale, magickaScale, staminaScale);
-    local verticalSpacing = baseVerticalSpacing + (scaleAdjustment > 1 and (scaleAdjustment - 1) * 8 or 0);
+    local verticalSpacing = getPyramidVerticalSpacing(healthScale, magickaScale, staminaScale, alwaysExpanded);
     local horizontalSpacing = 0;
-    local baseHealthTop = screenHeight - 100;
+    local baseHealthTop = getPyramidBaseHealthTop(screenHeight, healthScale, magickaScale, staminaScale);
     local baseHealthLeft = (screenWidth - healthWidth) / 2;
 
     local offsetLeft, offsetTop;
@@ -979,8 +1085,16 @@ function KhajiitFengShui:UpdatePyramidLayoutFromPosition(movedPanelId, left, top
         return;
     end;
 
+    if applyGridSnapOnOffset then
+        local gridSize = self:GetSnapSize();
+        if gridSize > 0 then
+            offsetLeft = zo_roundToNearest(offsetLeft, gridSize);
+            offsetTop = zo_roundToNearest(offsetTop, gridSize);
+        end;
+    end;
+
     self.savedVars.pyramidOffset = { left = offsetLeft; top = offsetTop };
-    self:ApplyPyramidLayout();
+    self:ApplyPyramidLayoutImmediate(false);
 end;
 
 ---Handles move stop event
@@ -1004,21 +1118,19 @@ function KhajiitFengShui:OnMoveStop(panel, handler, newPos, isExplicitStop)
     )
     then
         local left, top = PanelUtils.getAnchorPosition(handler);
-        self:UpdatePyramidLayoutFromPosition(panel.definition.id, left, top);
+        self:UpdatePyramidLayoutFromPosition(panel.definition.id, left, top, true);
     else
         local position = newPos or handler:GetPosition(true);
         self.savedVars.positions[panel.definition.id] = PanelUtils.copyPosition(position);
 
-        -- Note: newPos is already snapped by LCA MoveableControl (snap happens before EVENT_CONTROL_MOVE_STOP)
-        local gridSize = self:GetSnapSize();
-        PanelUtils.applyControlAnchorFromPosition(panel, position, gridSize);
+        -- newPos is already snapped by LCA MoveableControl on move stop
+        PanelUtils.applyControlAnchorFromPosition(panel, position, 0);
 
         if panel.definition.postApply then
             panel.definition.postApply(panel.control, true);
         end;
 
-        -- Sync overlay position to match control position after moving
-        PanelUtils.syncOverlaySize(panel);
+        SyncOverlaySize(self, panel);
 
         local left, top = PanelUtils.getAnchorPosition(handler);
         local message = self:BuildOverlayMessage(panel, left, top);
@@ -1080,7 +1192,18 @@ function KhajiitFengShui:CreateMover(panel)
     panel.handler:SetSnap(snapSize > 0 and snapSize or nil);
     panel.handler:ToggleLock(true);
 
-    PanelUtils.applySizing(panel.control, panel.definition.width, panel.definition.height);
+    local panelId = panel.definition.id;
+    local control = panel.control;
+    if isPrimaryAttributePanelId(panelId) and control then
+        local currentWidth = control:GetWidth() or 0;
+        local currentHeight = control:GetHeight() or 0;
+        if currentWidth == 0 or currentHeight == 0 then
+            PanelUtils.applySizing(control, panel.definition.width, panel.definition.height);
+        end;
+    else
+        PanelUtils.applySizing(control, panel.definition.width, panel.definition.height);
+    end;
+
     self:ApplySavedPosition(panel);
 
     if panel.definition.id == "compass" then
@@ -1089,6 +1212,10 @@ function KhajiitFengShui:CreateMover(panel)
 
     if panel.definition.id == "advZoneHUDTracker" then
         self:EnsureAdvZoneHUDTrackerHook();
+    end;
+
+    if isPrimaryAttributePanelId(panelId) then
+        self:EnsurePlayerAttributeBarsHook();
     end;
 
     if panel.definition.id == "questTrackerGamepad" then
@@ -1825,8 +1952,9 @@ function KhajiitFengShui:ApplyAllPositions()
     self:ApplyAllUserHiddenStates();
 end;
 
----Applies pyramid layout to attribute bars
-function KhajiitFengShui:ApplyPyramidLayout()
+---Applies pyramid layout to attribute bars (synchronous core)
+---@param allowDefer boolean? When true, retry after a short delay if bar dimensions are not ready
+function KhajiitFengShui:ApplyPyramidLayoutImmediate(allowDefer)
     local healthPanel = self.panelLookup["playerHealth"];
     local magickaPanel = self.panelLookup["playerMagicka"];
     local staminaPanel = self.panelLookup["playerStamina"];
@@ -1852,74 +1980,66 @@ function KhajiitFengShui:ApplyPyramidLayout()
     self:ApplyPanelScale(magickaPanel);
     self:ApplyPanelScale(staminaPanel);
 
-    zo_callLater(function ()
-                     if
-                     not (
-                         healthPanel
-                         and healthPanel.handler
-                         and magickaPanel
-                         and magickaPanel.handler
-                         and staminaPanel
-                         and staminaPanel.handler
-                     )
-                     then
-                         return;
-                     end;
+    local healthWidth = getExpectedBarWidth(healthPanel, healthScale);
+    local magickaWidth = getExpectedBarWidth(magickaPanel, magickaScale);
+    local staminaWidth = getExpectedBarWidth(staminaPanel, staminaScale);
+    local healthHeight = getExpectedBarHeight(healthPanel, healthScale);
 
-                     local healthWidth = getExpectedBarWidth(healthPanel, healthScale);
-                     local magickaWidth = getExpectedBarWidth(magickaPanel, magickaScale);
-                     local staminaWidth = getExpectedBarWidth(staminaPanel, staminaScale);
+    if allowDefer and (healthWidth <= 0 or magickaWidth <= 0 or staminaWidth <= 0 or healthHeight <= 0) then
+        zo_callLater(function ()
+                         self:ApplyPyramidLayoutImmediate(false);
+                     end, 100);
+        return;
+    end;
 
-                     local healthHeight = getExpectedBarHeight(healthPanel, healthScale);
+    local screenWidth = GuiRoot:GetWidth();
+    local screenHeight = GuiRoot:GetHeight();
 
-                     local screenWidth = GuiRoot:GetWidth();
-                     local screenHeight = GuiRoot:GetHeight();
+    local alwaysExpanded = AttributeScaler and AttributeScaler.alwaysExpandedEnabled or false;
+    local verticalSpacing = getPyramidVerticalSpacing(healthScale, magickaScale, staminaScale, alwaysExpanded);
+    local horizontalSpacing = 0;
+    local baseHealthTop = getPyramidBaseHealthTop(screenHeight, healthScale, magickaScale, staminaScale);
+    local baseHealthLeft = (screenWidth - healthWidth) / 2;
 
-                     local alwaysExpanded = AttributeScaler and AttributeScaler.alwaysExpandedEnabled or false;
-                     local baseVerticalSpacing = alwaysExpanded and 15 or 5;
-                     local scaleAdjustment = zo_max(healthScale, magickaScale, staminaScale);
-                     local verticalSpacing = baseVerticalSpacing + (scaleAdjustment > 1 and (scaleAdjustment - 1) * 8 or 0);
-                     local horizontalSpacing = 0;
-                     local baseHealthTop = screenHeight - 100;
-                     local baseHealthLeft = (screenWidth - healthWidth) / 2;
+    local offset = self.savedVars.pyramidOffset or { left = 0; top = 0 };
+    local healthTop = baseHealthTop + (offset.top or 0);
+    local healthLeft = baseHealthLeft + (offset.left or 0);
 
-                     local offset = self.savedVars.pyramidOffset or { left = 0; top = 0 };
-                     local healthTop = baseHealthTop + (offset.top or 0);
-                     local healthLeft = baseHealthLeft + (offset.left or 0);
+    local magickaTop = healthTop + healthHeight + verticalSpacing;
+    local magickaLeft = (screenWidth - magickaWidth - staminaWidth - horizontalSpacing) / 2 + (offset.left or 0);
 
-                     local magickaTop = healthTop + healthHeight + verticalSpacing;
-                     local magickaLeft = (screenWidth - magickaWidth - staminaWidth - horizontalSpacing) / 2 + (offset.left or 0);
+    local staminaTop = magickaTop;
+    local staminaLeft = magickaLeft + magickaWidth + horizontalSpacing;
 
-                     local staminaTop = magickaTop;
-                     local staminaLeft = magickaLeft + magickaWidth + horizontalSpacing;
+    local healthPos = { left = healthLeft; top = healthTop };
+    healthPanel.handler:UpdatePosition(healthPos);
+    PanelUtils.applyControlAnchor(healthPanel, healthLeft, healthTop);
+    SyncOverlaySize(self, healthPanel);
+    local message = self:BuildOverlayMessage(healthPanel, healthLeft, healthTop);
+    UpdateOverlayLabel(healthPanel, message);
 
-                     local gridSize = self:GetSnapSize();
+    local magickaPos = { left = magickaLeft; top = magickaTop };
+    magickaPanel.handler:UpdatePosition(magickaPos);
+    PanelUtils.applyControlAnchor(magickaPanel, magickaLeft, magickaTop);
+    SyncOverlaySize(self, magickaPanel);
+    message = self:BuildOverlayMessage(magickaPanel, magickaLeft, magickaTop);
+    UpdateOverlayLabel(magickaPanel, message);
 
-                     local healthPos = { left = healthLeft; top = healthTop };
-                     healthPanel.handler:UpdatePosition(healthPos);
-                     PanelUtils.applyControlAnchorFromPosition(healthPanel, healthPos, gridSize);
-                     SyncOverlaySize(healthPanel);
-                     local message = self:BuildOverlayMessage(healthPanel, healthLeft, healthTop);
-                     UpdateOverlayLabel(healthPanel, message);
+    local staminaPos = { left = staminaLeft; top = staminaTop };
+    staminaPanel.handler:UpdatePosition(staminaPos);
+    PanelUtils.applyControlAnchor(staminaPanel, staminaLeft, staminaTop);
+    SyncOverlaySize(self, staminaPanel);
+    message = self:BuildOverlayMessage(staminaPanel, staminaLeft, staminaTop);
+    UpdateOverlayLabel(staminaPanel, message);
 
-                     local magickaPos = { left = magickaLeft; top = magickaTop };
-                     magickaPanel.handler:UpdatePosition(magickaPos);
-                     PanelUtils.applyControlAnchorFromPosition(magickaPanel, magickaPos, gridSize);
-                     SyncOverlaySize(magickaPanel);
-                     message = self:BuildOverlayMessage(magickaPanel, magickaLeft, magickaTop);
-                     UpdateOverlayLabel(magickaPanel, message);
+    self:RefreshPanelState(healthPanel);
+    self:RefreshPanelState(magickaPanel);
+    self:RefreshPanelState(staminaPanel);
+end;
 
-                     local staminaPos = { left = staminaLeft; top = staminaTop };
-                     staminaPanel.handler:UpdatePosition(staminaPos);
-                     PanelUtils.applyControlAnchorFromPosition(staminaPanel, staminaPos, gridSize);
-                     SyncOverlaySize(staminaPanel);
-                     message = self:BuildOverlayMessage(staminaPanel, staminaLeft, staminaTop);
-                     UpdateOverlayLabel(staminaPanel, message);
-
-                     self:RefreshPanelState(healthPanel);
-                     self:RefreshPanelState(magickaPanel);
-                     self:RefreshPanelState(staminaPanel);
-                 end, 100);
+---Applies pyramid layout to attribute bars
+function KhajiitFengShui:ApplyPyramidLayout()
+    self:ApplyPyramidLayoutImmediate(true);
 end;
 
 --hide reticle if disabled
@@ -2018,6 +2138,7 @@ function KhajiitFengShui:OnAddOnLoaded(event, addonName)
 
     self:InitializePanels();
     self:EnsureAdvZoneHUDTrackerHook();
+    self:EnsurePlayerAttributeBarsHook();
     self.settingsController = SettingsController:New(self);
     self.settingsController:CreateSettingsMenu();
     self:ApplyAllPositions();

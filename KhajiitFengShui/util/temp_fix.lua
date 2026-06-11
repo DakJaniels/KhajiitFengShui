@@ -1,3 +1,5 @@
+---@diagnostic disable: duplicate-set-field, unused-local
+
 local INCREASED_POWER_TEXTURE = "ZO_IncreasedPowerTexture"
 local DECREASED_POWER_TEXTURE = "ZO_DecreasedPowerTexture"
 

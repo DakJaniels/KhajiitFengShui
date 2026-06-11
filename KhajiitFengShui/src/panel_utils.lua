@@ -110,24 +110,24 @@ local function getControlOwnerSafe(control)
     return nil;
 end;
 
----Computes relative offsets between control and GuiRoot
+---Resolves layout width and height for a panel control
 ---@param control userdata
----@param point integer
----@param relativePoint integer
----@param left number
----@param top number
----@param definition KhajiitFengShuiPanelDefinition
----@return number offsetX
----@return number offsetY
-local function computeRelativeOffsets(control, point, relativePoint, left, top, definition)
-    local rootWidth = GuiRoot:GetWidth() or 0;
-    local rootHeight = GuiRoot:GetHeight() or 0;
+---@param definition KhajiitFengShuiPanelDefinition?
+---@param widthOverride number?
+---@param heightOverride number?
+---@return number controlWidth
+---@return number controlHeight
+local function resolveControlDimensions(control, definition, widthOverride, heightOverride)
     local owner = getControlOwnerSafe(control);
 
     ---@param currentSize number?
     ---@param fallbackValue any
+    ---@param override number?
     ---@return number
-    local function resolveDimension(currentSize, fallbackValue)
+    local function resolveDimension(currentSize, fallbackValue, override)
+        if override and override > 0 then
+            return override;
+        end;
         local size = currentSize;
         if size and size ~= 0 then
             return size;
@@ -141,8 +141,52 @@ local function computeRelativeOffsets(control, point, relativePoint, left, top, 
         return 0;
     end;
 
-    local controlWidth = resolveDimension(control.GetWidth and control:GetWidth(), definition and definition.width);
-    local controlHeight = resolveDimension(control.GetHeight and control:GetHeight(), definition and definition.height);
+    local controlWidth = resolveDimension(control.GetWidth and control:GetWidth(), definition and definition.width, widthOverride);
+    local controlHeight = resolveDimension(control.GetHeight and control:GetHeight(), definition and definition.height, heightOverride);
+    return controlWidth, controlHeight;
+end;
+
+---Returns visual top-left and size on screen (accounts for center-based transform scale)
+---@param control userdata
+---@param definition KhajiitFengShuiPanelDefinition?
+---@param widthOverride number?
+---@param heightOverride number?
+---@return number visualLeft
+---@return number visualTop
+---@return number visualWidth
+---@return number visualHeight
+function PanelUtils.getVisualBounds(control, definition, widthOverride, heightOverride)
+    local controlWidth, controlHeight = resolveControlDimensions(control, definition, widthOverride, heightOverride);
+    local scale = control:GetTransformScale() or control:GetScale() or 1;
+    local visualWidth = controlWidth * scale;
+    local visualHeight = controlHeight * scale;
+
+    local layoutLeft = control:GetLeft() or 0;
+    local layoutTop = control:GetTop() or 0;
+
+    if scale == 1 then
+        return layoutLeft, layoutTop, visualWidth, visualHeight;
+    end;
+
+    local visualLeft = layoutLeft + (controlWidth - visualWidth) * 0.5;
+    local visualTop = layoutTop + (controlHeight - visualHeight) * 0.5;
+    return visualLeft, visualTop, visualWidth, visualHeight;
+end;
+
+---Computes relative offsets between control and GuiRoot
+---@param control userdata
+---@param point integer
+---@param relativePoint integer
+---@param left number
+---@param top number
+---@param definition KhajiitFengShuiPanelDefinition
+---@return number offsetX
+---@return number offsetY
+local function computeRelativeOffsets(control, point, relativePoint, left, top, definition)
+    local rootWidth = GuiRoot:GetWidth() or 0;
+    local rootHeight = GuiRoot:GetHeight() or 0;
+
+    local controlWidth, controlHeight = resolveControlDimensions(control, definition, nil, nil);
 
     -- Account for scale when computing visual dimensions for positioning
     local scale = control:GetTransformScale() or control:GetScale() or 1;
@@ -215,13 +259,7 @@ function PanelUtils.applyControlAnchor(panel, left, top)
         return;
     end;
 
-    local offsetX, offsetY;
-    if point == TOPLEFT and relativePoint == TOPLEFT then
-        offsetX = left;
-        offsetY = top;
-    else
-        offsetX, offsetY = computeRelativeOffsets(control, point, relativePoint, left, top, definition);
-    end;
+    local offsetX, offsetY = computeRelativeOffsets(control, point, relativePoint, left, top, definition);
 
     local anchor = ZO_Anchor:New(point, GuiRoot, relativePoint, offsetX, offsetY);
     anchor:Set(control);
@@ -378,29 +416,28 @@ function PanelUtils.createOverlay(panelId, control)
     return overlay, label;
 end;
 
----Syncs overlay dimensions to match control size with scale
+---Syncs overlay dimensions to match control visual bounds (optional width/height overrides)
 ---@param panel KhajiitFengShuiPanel
-function PanelUtils.syncOverlaySize(panel)
+---@param widthOverride number?
+---@param heightOverride number?
+function PanelUtils.syncOverlaySize(panel, widthOverride, heightOverride)
     local control = panel.control;
     local overlay = panel.overlay;
     if not (control and overlay) then
         return;
     end;
 
-    -- Get control dimensions
-    local width, height;
-    do
-        width = control:GetWidth() or 0;
-        height = control:GetHeight() or 0;
-    end;
+    local definition = panel.definition;
+    local visualLeft, visualTop, visualWidth, visualHeight = PanelUtils.getVisualBounds(
+        control,
+        definition,
+        widthOverride,
+        heightOverride
+    );
 
-    local scale = control:GetTransformScale() or control:GetScale() or 1;
-    overlay:SetDimensions(width * scale, height * scale);
-
-    local controlLeft = control:GetLeft() or 0;
-    local controlTop = control:GetTop() or 0;
+    overlay:SetDimensions(visualWidth, visualHeight);
     overlay:ClearAnchors();
-    overlay:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, controlLeft, controlTop);
+    overlay:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, visualLeft, visualTop);
 end;
 
 ---Sets overlay highlight color based on active state
